@@ -174,7 +174,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             SizedBox(
               width: 120,
               height: 120,
-              child: Image.network(
+              child: Image.asset(
                 article.imageUrl,
                 fit: BoxFit.cover,
               ),

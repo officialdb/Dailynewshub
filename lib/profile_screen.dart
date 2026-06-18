@@ -144,7 +144,7 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
             child: ClipOval(
-              child: Image.network(
+              child: Image.asset(
                 'https://lh3.googleusercontent.com/aida-public/AB6AXuAYwJSkrt9xk33X9VZb_JS0gKl9jVx8pdOj5GnpTFixXB_jvHfZ6nnPALpc5_nwkYJsS5U506Ka-Z4GH0nnTxSaXN9hOQGTeM17aeLaLc1v5K2CZlHbBeSg0miWwRgL3Aylkr9GDEUe2iM0yH3cBZQnjmhE3g2Ds35Qyx57yDU6cqRm_gaVRpAzArHrLiboa0G_o9s5X-bQuCY2ZcpxEYEV7bENYT4GrDCN4kCYemdXjtK1dooGAEzyRL7N3x3RUEs0z2NFd91H6jE',
                 fit: BoxFit.cover,
                 color: Colors.grey,
@@ -420,7 +420,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
-            if (trailing != null) trailing,
+            ?trailing,
           ],
         ),
       ),

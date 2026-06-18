@@ -67,7 +67,7 @@ class ArticleDetailScreen extends StatelessWidget {
     return SizedBox(
       height: 442,
       width: double.infinity,
-      child: Image.network(
+      child: Image.asset(
         article.imageUrl,
         fit: BoxFit.cover,
         color: Colors.black.withOpacity(0.3),

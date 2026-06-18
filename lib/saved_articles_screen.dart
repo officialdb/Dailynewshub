@@ -233,7 +233,7 @@ class SavedArticlesScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: Image.network(
+                  child: Image.asset(
                     article.imageUrl,
                     fit: BoxFit.cover,
                   ),

@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'article_detail_screen.dart';
-import 'search_screen.dart';
 import 'providers/news_provider.dart';
 import 'models/article.dart';
 import 'models/category.dart';
@@ -153,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
             image: DecorationImage(
-              image: NetworkImage(
+              image: AssetImage(
                   'https://lh3.googleusercontent.com/aida-public/AB6AXuBUz43FWqB3AeunGrwLfQiOKaKVZwMYO4zIooL6K4_Kg2y9WCf-6cx_qbFZlabSCSmtn257e0VFCeNbXN7tVyWS4y9abVIGYQ1lMae03GO8ET7431hXG7z-fhcVI0ncM8JwP_oa-EjdkxCie9VYEjc04rqJ3ZbL0zq7mLNAgO2O8hw5XMHCZQrPJDHJ5QgNBGX9--1JU3dr8FTJj-5fCtuolJhRXl_SanGCItDl3UiXAbMUxBVBH-bfxc0yoDoXq1Q_ooMiX7AVlT4'),
               fit: BoxFit.cover,
             ),
@@ -242,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
+            Image.asset(
               article.imageUrl,
               fit: BoxFit.cover,
               color: Colors.black.withOpacity(0.3),
@@ -405,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(
               width: 120,
               height: 120,
-              child: Image.network(
+              child: Image.asset(
                 article.imageUrl,
                 fit: BoxFit.cover,
               ),
