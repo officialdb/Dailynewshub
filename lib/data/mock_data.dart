@@ -48,7 +48,7 @@ class MockData {
       category: 'Environment',
       source: 'EcoWatch • 1d ago',
       timeAgo: '1d ago',
-      imageUrl: 'assets/images/environment_1.jpg',
+      imageUrl: 'assets/images/environment_3.jpg',
       content: 'In response to escalating climate concerns, Metropolis has launched an ambitious urban greening project aimed at converting 30% of its concrete surfaces into sustainable eco-spaces by 2030. The initiative focuses on creating a network of vertical gardens, rooftop parks, and green corridors designed to reduce the urban heat island effect, improve air quality, and enhance biodiversity within the city center. Early estimates suggest the project could lower local temperatures by up to 2 degrees Celsius during peak summer months.',
     ),
     Article(
@@ -102,7 +102,7 @@ class MockData {
       category: 'Science',
       source: 'Future Food • 3d ago',
       timeAgo: '3d ago',
-      imageUrl: 'assets/images/science_2.jpg',
+      imageUrl: 'assets/images/science_4.jpg',
       content: 'A food technology startup has successfully created a synthetic meat product that is molecularly indistinguishable from its animal-derived counterpart. Unlike previous plant-based alternatives, this new product is cultivated from a small sample of animal cells in a lab environment. Blind taste tests conducted by renowned chefs and food critics resulted in unanimous agreement that the synthetic meat perfectly replicates the taste, texture, and nutritional profile of conventional beef.',
     ),
     Article(
