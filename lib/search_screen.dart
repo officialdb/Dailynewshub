@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'article_detail_screen.dart';
 import 'providers/news_provider.dart';
 import 'models/article.dart';
+import 'widgets/skeleton_loader.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -63,7 +64,7 @@ class _SearchScreenState extends State<SearchScreen> {
             _buildSearchInput(),
             const SizedBox(height: 32),
             if (isSearching)
-              _buildSearchResults(searchResults)
+              _buildSearchResults(searchResults, newsProvider.isLoading)
             else ...[
               _buildRecentSearches(),
               const SizedBox(height: 32),
@@ -171,7 +172,18 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildSearchResults(List<Article> results) {
+  Widget _buildSearchResults(List<Article> results, bool isLoading) {
+    if (isLoading) {
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 5,
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          return const ListArticleSkeletonCard();
+        },
+      );
+    }
     if (results.isEmpty) {
       return Center(
         child: Padding(

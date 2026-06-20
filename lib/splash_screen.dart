@@ -107,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Container(
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(2),
               ),
               clipBehavior: Clip.hardEdge,
@@ -129,7 +129,7 @@ class _SplashScreenState extends State<SplashScreen>
                     translation: Offset(progress - 1.0, 0.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE23B3B).withOpacity(opacity),
+                        color: const Color(0xFFE23B3B).withValues(alpha: opacity),
                       ),
                     ),
                   );

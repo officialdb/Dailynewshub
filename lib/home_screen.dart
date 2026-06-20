@@ -7,6 +7,7 @@ import 'providers/news_provider.dart';
 import 'models/article.dart';
 import 'models/category.dart';
 import 'widgets/app_drawer.dart';
+import 'widgets/skeleton_loader.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,11 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildGreeting(),
             const SizedBox(height: 24),
-            _buildTrendingSection(trendingArticles),
+            _buildTrendingSection(trendingArticles, newsProvider.isLoading),
             const SizedBox(height: 24),
             _buildCategories(allCategories),
             const SizedBox(height: 16),
-            _buildArticleList(displayArticles),
+            _buildArticleList(displayArticles, newsProvider.isLoading),
           ],
         ),
       ),
@@ -189,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTrendingSection(List<Article> articles) {
+  Widget _buildTrendingSection(List<Article> articles, bool isLoading) {
     return Column(
       children: [
         Row(
@@ -212,9 +213,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView.separated(
             controller: _trendingScrollController,
             scrollDirection: Axis.horizontal,
-            itemCount: articles.length,
+            itemCount: isLoading ? 3 : articles.length,
             separatorBuilder: (context, index) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
+              if (isLoading) return const TrendingSkeletonCard();
               return _buildTrendingCard(articles[index]);
             },
           ),
@@ -244,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Image.asset(
               article.imageUrl,
               fit: BoxFit.cover,
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               colorBlendMode: BlendMode.darken,
             ),
             Container(
@@ -253,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    const Color(0xFF0A0E21).withOpacity(0.9),
+                    const Color(0xFF0A0E21).withValues(alpha: 0.9),
                     Colors.transparent,
                   ],
                 ),
@@ -360,7 +362,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildArticleList(List<Article> articles) {
+  Widget _buildArticleList(List<Article> articles, bool isLoading) {
+    if (isLoading) {
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 5,
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          return const ListArticleSkeletonCard();
+        },
+      );
+    }
     if (articles.isEmpty) {
       return Center(
         child: Padding(

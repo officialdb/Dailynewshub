@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
 import '../models/article.dart';
 import '../models/category.dart';
+import '../models/comment.dart';
 
 class MockData {
+  static final List<Comment> initialComments = [
+    Comment(
+      id: 'c1',
+      articleId: 'a1',
+      userName: 'John Doe',
+      text: 'This is a great article!',
+      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+    ),
+    Comment(
+      id: 'c2',
+      articleId: 'a1',
+      userName: 'Jane Smith',
+      text: 'I completely agree with the points made here.',
+      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
+    ),
+  ];
+
   static final List<NewsCategory> categories = [
     NewsCategory(id: 'c1', title: 'Technology', icon: Icons.memory),
     NewsCategory(id: 'c2', title: 'Business', icon: Icons.trending_up),
