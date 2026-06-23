@@ -5,6 +5,7 @@ import 'splash_screen.dart';
 import 'providers/news_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/auth_provider.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(
@@ -24,25 +25,17 @@ class DailyNewsHubApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Daily News Hub',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF0A0E21),
-        canvasColor: const Color(0xFF0A0E21), // Prevents white flash during transitions
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple).copyWith(
-          surface: const Color(0xFF0A0E21),
-        ),
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      home: const SplashScreen(),
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return MaterialApp(
+          title: 'Daily News Hub',
+          debugShowCheckedModeBanner: false,
+          themeMode: settings.darkMode ? ThemeMode.dark : ThemeMode.light,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

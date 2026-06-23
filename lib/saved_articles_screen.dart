@@ -16,7 +16,6 @@ class SavedArticlesScreen extends StatelessWidget {
     final savedArticles = newsProvider.savedArticles;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       drawer: const AppDrawer(),
       appBar: _buildAppBar(context),
       body: SingleChildScrollView(
@@ -24,7 +23,7 @@ class SavedArticlesScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(savedArticles.length),
+            _buildHeader(context, savedArticles.length),
             const SizedBox(height: 24),
             if (savedArticles.isEmpty)
               Center(
@@ -32,7 +31,7 @@ class SavedArticlesScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(32.0),
                   child: Text(
                     'No saved articles yet. Bookmark some!',
-                    style: GoogleFonts.inter(color: Colors.white),
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
               )
@@ -48,66 +47,35 @@ class SavedArticlesScreen extends StatelessWidget {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(64.0),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0A0E21),
-          border: Border(bottom: BorderSide(color: Colors.white, width: 4)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.white,
-              offset: Offset(4, 4),
-              blurRadius: 0,
-            ),
-          ],
+    return AppBar(
+      centerTitle: true,
+      title: const Text('DAILY NEWS HUB'),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.search, color: Theme.of(context).iconTheme.color, size: 28),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SearchScreen()),
+            );
+          },
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Builder(
-                  builder: (context) {
-                    return IconButton(
-                      icon: const Icon(Icons.menu, color: Colors.white, size: 28),
-                      onPressed: () {
-                        Scaffold.of(context).openDrawer();
-                      },
-                    );
-                  }
-                ),
-                Text(
-                  'DAILY NEWS HUB',
-                  style: GoogleFonts.spaceGrotesk(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1.0,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.search, color: Colors.white, size: 28),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const SearchScreen()),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
+        const SizedBox(width: 8),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Container(
+          color: Theme.of(context).dividerTheme.color,
+          height: 1.0,
         ),
       ),
     );
   }
 
-  Widget _buildHeader(int count) {
+  Widget _buildHeader(BuildContext context, int count) {
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white, width: 4)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color!)),
       ),
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -118,19 +86,13 @@ class SavedArticlesScreen extends StatelessWidget {
           Expanded(
             child: Text(
               'MY SAVED ARTICLES',
-              style: GoogleFonts.spaceGrotesk(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.0,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 28),
             ),
           ),
           Text(
             '$count saved',
-            style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
-              fontSize: 14,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -147,19 +109,10 @@ class SavedArticlesScreen extends StatelessWidget {
           MaterialPageRoute(builder: (context) => ArticleDetailScreen(article: article)),
         );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1D2035),
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.white,
-              offset: Offset(4, 4),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(16),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -169,12 +122,7 @@ class SavedArticlesScreen extends StatelessWidget {
                 children: [
                   Text(
                     article.title,
-                    style: GoogleFonts.spaceGrotesk(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -183,20 +131,13 @@ class SavedArticlesScreen extends StatelessWidget {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE23B3B),
-                          border: Border.all(color: Colors.white, width: 1),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.white,
-                              offset: Offset(2, 2),
-                              blurRadius: 0,
-                            ),
-                          ],
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         child: Text(
                           article.category.toUpperCase(),
-                          style: GoogleFonts.spaceGrotesk(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -208,10 +149,8 @@ class SavedArticlesScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           article.source,
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF6B7280),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -230,8 +169,9 @@ class SavedArticlesScreen extends StatelessWidget {
                 Container(
                   width: 96,
                   height: 96,
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white, width: 2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Image.asset(
                     article.imageUrl,
@@ -243,15 +183,16 @@ class SavedArticlesScreen extends StatelessWidget {
                   onTap: () {
                     provider.toggleSave(article.id);
                   },
-                  child: const Icon(
+                  child: Icon(
                     Icons.bookmark,
-                    color: Color(0xFFE23B3B),
+                    color: Theme.of(context).colorScheme.primary,
                     size: 32,
                   ),
                 ),
               ],
             ),
           ],
+          ),
         ),
       ),
     );

@@ -54,21 +54,20 @@ class _SearchScreenState extends State<SearchScreen> {
     final searchResults = newsProvider.searchResults;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       appBar: _buildAppBar(context),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 16, right: 16, top: 32, bottom: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSearchInput(),
+            _buildSearchInput(context),
             const SizedBox(height: 32),
             if (isSearching)
               _buildSearchResults(searchResults, newsProvider.isLoading)
             else ...[
-              _buildRecentSearches(),
+              _buildRecentSearches(context),
               const SizedBox(height: 32),
-              _buildTrendingTopics(),
+              _buildTrendingTopics(context),
             ],
           ],
         ),
@@ -78,26 +77,15 @@ class _SearchScreenState extends State<SearchScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: const Color(0xFF0A0E21),
-      elevation: 0,
       centerTitle: true,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+        icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color, size: 28),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text(
-        'DAILY NEWS HUB',
-        style: GoogleFonts.spaceGrotesk(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.w900,
-          fontStyle: FontStyle.italic,
-          letterSpacing: -1.0,
-        ),
-      ),
+      title: const Text('DAILY NEWS HUB'),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search, color: Colors.white, size: 28),
+          icon: Icon(Icons.search, color: Theme.of(context).iconTheme.color, size: 28),
           onPressed: () {},
         ),
         const SizedBox(width: 8),
@@ -105,51 +93,44 @@ class _SearchScreenState extends State<SearchScreen> {
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),
         child: Container(
-          color: const Color(0xFF374151), // border-outline
+          color: Theme.of(context).dividerTheme.color,
           height: 1.0,
         ),
       ),
     );
   }
 
-  Widget _buildSearchInput() {
+  Widget _buildSearchInput(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'SEARCH',
-          style: GoogleFonts.spaceGrotesk(
-            color: Colors.white,
-            fontSize: 36,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.0,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 36),
         ),
         const SizedBox(height: 24),
         Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1D2035),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
-            ),
-            border: Border(
-              bottom: BorderSide(color: Color(0xFFE23B3B), width: 2),
-            ),
+          decoration: BoxDecoration(
+            color: Theme.of(context).inputDecorationTheme.fillColor,
+            borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              const Icon(Icons.search, color: Color(0xFF6B7280)),
+              Icon(Icons.search, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   controller: _searchController,
-                  style: GoogleFonts.inter(color: Colors.white, fontSize: 18),
+                  style: Theme.of(context).textTheme.bodyLarge,
                   decoration: InputDecoration(
                     hintText: 'Search articles...',
-                    hintStyle: GoogleFonts.inter(color: const Color(0xFF6B7280), fontSize: 18),
+                    hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent,
+                    filled: true,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -161,10 +142,10 @@ class _SearchScreenState extends State<SearchScreen> {
                   onTap: () {
                     _searchController.clear();
                   },
-                  child: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                  child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                 )
               else
-                const Icon(Icons.mic, color: Color(0xFF6B7280)),
+                Icon(Icons.mic, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
             ],
           ),
         ),
@@ -190,7 +171,7 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: const EdgeInsets.all(32.0),
           child: Text(
             'No articles found.',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
       );
@@ -209,13 +190,11 @@ class _SearchScreenState extends State<SearchScreen> {
               MaterialPageRoute(builder: (context) => ArticleDetailScreen(article: article)),
             );
           },
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1D2035),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
               children: [
                 Container(
                   width: 80,
@@ -236,7 +215,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       Text(
                         article.category.toUpperCase(),
                         style: GoogleFonts.inter(
-                          color: const Color(0xFFE23B3B),
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -245,11 +224,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(height: 4),
                       Text(
                         article.title,
-                        style: GoogleFonts.spaceGrotesk(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -258,19 +233,20 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ],
             ),
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildRecentSearches() {
+  Widget _buildRecentSearches(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFF374151))),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color!)),
           ),
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
@@ -280,16 +256,12 @@ class _SearchScreenState extends State<SearchScreen> {
             children: [
               Text(
                 'RECENT SEARCHES',
-                style: GoogleFonts.spaceGrotesk(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20),
               ),
               Text(
                 'CLEAR ALL',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFFE23B3B),
+                  color: Theme.of(context).colorScheme.primary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -309,22 +281,17 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  border: Border.all(color: const Color(0xFF374151)),
-                  borderRadius: BorderRadius.circular(4),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.history, color: Color(0xFF6B7280), size: 16),
+                    Icon(Icons.history, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), size: 16),
                     const SizedBox(width: 8),
                     Text(
                       search,
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFFD1D5DB),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
                 ),
@@ -336,21 +303,17 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildTrendingTopics() {
+  Widget _buildTrendingTopics(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.trending_up, color: Color(0xFFE23B3B), size: 24),
+            Icon(Icons.trending_up, color: Theme.of(context).colorScheme.primary, size: 24),
             const SizedBox(width: 8),
             Text(
               'TRENDING TOPICS',
-              style: GoogleFonts.spaceGrotesk(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20),
             ),
           ],
         ),
@@ -372,14 +335,14 @@ class _SearchScreenState extends State<SearchScreen> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1D2035),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '${index + 1}',
                       style: GoogleFonts.spaceGrotesk(
-                        color: const Color(0xFFE23B3B),
+                        color: Theme.of(context).colorScheme.primary,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -392,17 +355,12 @@ class _SearchScreenState extends State<SearchScreen> {
                       children: [
                         Text(
                           topic['title'],
-                          style: GoogleFonts.spaceGrotesk(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
                           topic['articles'],
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF6B7280),
-                            fontSize: 12,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ],

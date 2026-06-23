@@ -83,6 +83,30 @@ class AuthProvider with ChangeNotifier {
       email: email,
       password: password,
       registeredAt: _currentUser!.registeredAt,
+      profileImageUrl: _currentUser!.profileImageUrl,
+    );
+    
+    final index = _users.indexWhere((u) => u.id == updatedUser.id);
+    if (index != -1) {
+      _users[index] = updatedUser;
+    }
+    _currentUser = updatedUser;
+    
+    await _saveData();
+    notifyListeners();
+  }
+
+  Future<void> updateProfileImage(String imagePath) async {
+    if (_currentUser == null) return;
+    
+    final updatedUser = User(
+      id: _currentUser!.id,
+      firstName: _currentUser!.firstName,
+      lastName: _currentUser!.lastName,
+      email: _currentUser!.email,
+      password: _currentUser!.password,
+      registeredAt: _currentUser!.registeredAt,
+      profileImageUrl: imagePath,
     );
     
     final index = _users.indexWhere((u) => u.id == updatedUser.id);

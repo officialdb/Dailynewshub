@@ -15,9 +15,13 @@ class SkeletonLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+
     return Shimmer.fromColors(
-      baseColor: const Color(0xFF1D2035),
-      highlightColor: const Color(0xFF2A2E4C),
+      baseColor: baseColor,
+      highlightColor: highlightColor,
       child: Container(
         width: width,
         height: height,
@@ -35,16 +39,20 @@ class TrendingSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+
     return Container(
       width: 280,
       decoration: BoxDecoration(
-        color: const Color(0xFF1D2035),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
       child: Shimmer.fromColors(
-        baseColor: const Color(0xFF1D2035),
-        highlightColor: const Color(0xFF2A2E4C),
+        baseColor: baseColor,
+        highlightColor: highlightColor,
         child: Container(
           color: Colors.white,
           child: Padding(
@@ -93,16 +101,20 @@ class ListArticleSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: const Color(0xFF1D2035),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
       clipBehavior: Clip.antiAlias,
       child: Shimmer.fromColors(
-        baseColor: const Color(0xFF1D2035),
-        highlightColor: const Color(0xFF2A2E4C),
+        baseColor: baseColor,
+        highlightColor: highlightColor,
         child: Row(
           children: [
             Container(

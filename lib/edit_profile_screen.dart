@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'providers/auth_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -16,6 +18,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   bool _isLoading = false;
+  File? _selectedImage;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -53,6 +66,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.updateProfile(firstName, lastName, email, password);
+    if (_selectedImage != null) {
+      // In a real app, you would upload this to a server/storage and get the URL
+      // For now, we'll simulate by updating the profile image url with the local path
+      await authProvider.updateProfileImage(_selectedImage!.path);
+    }
     
     setState(() => _isLoading = false);
 
@@ -67,33 +85,64 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0E21),
-        elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'EDIT PROFILE',
-          style: GoogleFonts.spaceGrotesk(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('EDIT PROFILE'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Stack(
+                children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Theme.of(context).colorScheme.primary, width: 4),
+                    ),
+                    child: ClipOval(
+                      child: _selectedImage != null
+                          ? Image.file(_selectedImage!, fit: BoxFit.cover)
+                          : (Provider.of<AuthProvider>(context).currentUser?.profileImageUrl != null
+                              ? Image.network(
+                                  Provider.of<AuthProvider>(context).currentUser!.profileImageUrl!,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.asset('assets/placeholder.jpg', fit: BoxFit.cover)),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
             Row(
               children: [
                 Expanded(
                   child: _buildTextField(
+                    context,
                     controller: _firstNameController,
                     label: 'FIRST NAME',
                     icon: Icons.person_outline,
@@ -102,6 +151,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildTextField(
+                    context,
                     controller: _lastNameController,
                     label: 'LAST NAME',
                     icon: Icons.person_outline,
@@ -111,6 +161,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 24),
             _buildTextField(
+              context,
               controller: _emailController,
               label: 'EMAIL',
               icon: Icons.email_outlined,
@@ -118,6 +169,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 24),
             _buildTextField(
+              context,
               controller: _passwordController,
               label: 'PASSWORD',
               icon: Icons.lock_outline,
@@ -129,7 +181,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               height: 56,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE23B3B),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -139,9 +191,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
                         'SAVE CHANGES',
-                        style: GoogleFonts.spaceGrotesk(
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Colors.white,
-                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
                         ),
@@ -154,7 +205,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildTextField(BuildContext context, {
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -166,9 +217,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.spaceGrotesk(
-            color: const Color(0xFF6B7280),
-            fontSize: 12,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
           ),
@@ -178,18 +228,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
-          style: const TextStyle(color: Colors.white),
+          style: Theme.of(context).textTheme.bodyMedium,
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFF1D2035),
-            prefixIcon: Icon(icon, color: const Color(0xFF6B7280)),
+            fillColor: Theme.of(context).inputDecorationTheme.fillColor,
+            prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFE23B3B), width: 2),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
             ),
           ),
         ),

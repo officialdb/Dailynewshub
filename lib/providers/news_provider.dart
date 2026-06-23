@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/article.dart';
 import '../models/category.dart';
 import '../models/comment.dart';
@@ -8,7 +8,7 @@ import '../data/mock_data.dart';
 class NewsProvider with ChangeNotifier {
   final List<Article> _allArticles = MockData.allArticles;
   final List<NewsCategory> _categories = MockData.categories;
-  final Set<String> _savedArticleIds = {};
+  Set<String> _savedArticleIds = {};
   final List<Comment> _comments = List.from(MockData.initialComments);
   
   bool _isLoading = false;
@@ -24,6 +24,10 @@ class NewsProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     await Future.delayed(const Duration(milliseconds: 1500));
+    final prefs = await SharedPreferences.getInstance();
+    final savedList = prefs.getStringList('savedArticles') ?? [];
+    _savedArticleIds = savedList.toSet();
+
     _isLoading = false;
     notifyListeners();
   }
@@ -64,13 +68,16 @@ class NewsProvider with ChangeNotifier {
     return _savedArticleIds.contains(id);
   }
 
-  void toggleSave(String id) {
+  Future<void> toggleSave(String id) async {
     if (_savedArticleIds.contains(id)) {
       _savedArticleIds.remove(id);
     } else {
       _savedArticleIds.add(id);
     }
     notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('savedArticles', _savedArticleIds.toList());
   }
 
   Future<void> search(String query) async {

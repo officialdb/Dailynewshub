@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'dart:io';
 import 'article_detail_screen.dart';
 import 'providers/news_provider.dart';
+import 'providers/auth_provider.dart';
 import 'models/article.dart';
 import 'models/category.dart';
 import 'widgets/app_drawer.dart';
@@ -74,57 +76,46 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       drawer: const AppDrawer(),
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(context),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 96),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildGreeting(),
+            _buildGreeting(context),
             const SizedBox(height: 24),
-            _buildTrendingSection(trendingArticles, newsProvider.isLoading),
+            _buildTrendingSection(context, trendingArticles, newsProvider.isLoading),
             const SizedBox(height: 24),
-            _buildCategories(allCategories),
+            _buildCategories(context, allCategories),
             const SizedBox(height: 16),
-            _buildArticleList(displayArticles, newsProvider.isLoading),
+            _buildArticleList(context, displayArticles, newsProvider.isLoading),
           ],
         ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: const Color(0xFF0A0E21),
-      elevation: 0,
       titleSpacing: 0,
       leading: Builder(
         builder: (context) {
           return IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white, size: 28),
+            icon: Icon(Icons.menu, color: Theme.of(context).iconTheme.color, size: 28),
             onPressed: () {
               Scaffold.of(context).openDrawer();
             },
           );
         }
       ),
-      title: Text(
-        'DAILY NEWS HUB',
-        style: GoogleFonts.spaceGrotesk(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.5,
-        ),
-      ),
+      title: const Text('DAILY NEWS HUB'),
       actions: [
         Stack(
           alignment: Alignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.white, size: 26),
+              icon: Icon(Icons.notifications_none, color: Theme.of(context).iconTheme.color, size: 26),
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('No new notifications')),
@@ -138,72 +129,73 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE23B3B),
+                  color: Theme.of(context).colorScheme.primary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF0A0E21), width: 1),
+                  border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(width: 8),
-        Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            image: DecorationImage(
-              image: AssetImage(
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuBUz43FWqB3AeunGrwLfQiOKaKVZwMYO4zIooL6K4_Kg2y9WCf-6cx_qbFZlabSCSmtn257e0VFCeNbXN7tVyWS4y9abVIGYQ1lMae03GO8ET7431hXG7z-fhcVI0ncM8JwP_oa-EjdkxCie9VYEjc04rqJ3ZbL0zq7mLNAgO2O8hw5XMHCZQrPJDHJ5QgNBGX9--1JU3dr8FTJj-5fCtuolJhRXl_SanGCItDl3UiXAbMUxBVBH-bfxc0yoDoXq1Q_ooMiX7AVlT4'),
-              fit: BoxFit.cover,
-            ),
-          ),
+        Consumer<AuthProvider>(
+          builder: (context, authProvider, child) {
+            return Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              child: ClipOval(
+                child: authProvider.currentUser?.profileImageUrl != null
+                    ? Image.file(
+                        File(authProvider.currentUser!.profileImageUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : Icon(
+                        Icons.person,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+              ),
+            );
+          },
         ),
         const SizedBox(width: 16),
       ],
     );
   }
 
-  Widget _buildGreeting() {
+  Widget _buildGreeting(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Good Morning, User 👋',
-          style: GoogleFonts.spaceGrotesk(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 28),
         ),
         const SizedBox(height: 4),
         Text(
           'Here is your daily briefing.',
-          style: GoogleFonts.inter(
-            color: const Color(0xFF6B7280),
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTrendingSection(List<Article> articles, bool isLoading) {
+  Widget _buildTrendingSection(BuildContext context, List<Article> articles, bool isLoading) {
     return Column(
       children: [
         Row(
           children: [
-            const Icon(Icons.local_fire_department, color: Color(0xFFE23B3B), size: 24),
+            Icon(Icons.local_fire_department, color: Theme.of(context).colorScheme.primary, size: 24),
             const SizedBox(width: 8),
             Text(
               'TRENDING NOW',
-              style: GoogleFonts.spaceGrotesk(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20),
             ),
           ],
         ),
@@ -217,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
             separatorBuilder: (context, index) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
               if (isLoading) return const TrendingSkeletonCard();
-              return _buildTrendingCard(articles[index]);
+              return _buildTrendingCard(context, articles[index]);
             },
           ),
         ),
@@ -225,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTrendingCard(Article article) {
+  Widget _buildTrendingCard(BuildContext context, Article article) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -233,14 +225,11 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (context) => ArticleDetailScreen(article: article)),
         );
       },
-      child: Container(
+      child: SizedBox(
         width: 280,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1D2035),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: Stack(
           fit: StackFit.expand,
           children: [
             Image.asset(
@@ -255,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    const Color(0xFF0A0E21).withValues(alpha: 0.9),
+                    Colors.black.withValues(alpha: 0.8),
                     Colors.transparent,
                   ],
                 ),
@@ -270,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE23B3B),
+                      color: Theme.of(context).colorScheme.primary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -302,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           article.source,
                           style: GoogleFonts.inter(
-                            color: const Color(0xFFD1D5DB),
+                            color: Colors.white70,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -318,10 +307,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 
-  Widget _buildCategories(List<NewsCategory> categories) {
+  Widget _buildCategories(BuildContext context, List<NewsCategory> categories) {
     List<String> displayCat = ['All', ...categories.map((c) => c.title)];
     return SizedBox(
       height: 40,
@@ -340,17 +330,14 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFE23B3B) : Colors.transparent,
+                color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? const Color(0xFFE23B3B) : const Color(0xFF374151),
-                ),
               ),
               child: Center(
                 child: Text(
                   displayCat[index],
                   style: GoogleFonts.inter(
-                    color: isSelected ? Colors.white : const Color(0xFF9CA3AF),
+                    color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   ),
                 ),
@@ -362,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildArticleList(List<Article> articles, bool isLoading) {
+  Widget _buildArticleList(BuildContext context, List<Article> articles, bool isLoading) {
     if (isLoading) {
       return ListView.separated(
         shrinkWrap: true,
@@ -380,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(32.0),
           child: Text(
             'No articles in this category.',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
       );
@@ -392,12 +379,12 @@ class _HomeScreenState extends State<HomeScreen> {
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final article = articles[index];
-        return _buildListArticleCard(article);
+        return _buildListArticleCard(context, article);
       },
     );
   }
 
-  Widget _buildListArticleCard(Article article) {
+  Widget _buildListArticleCard(BuildContext context, Article article) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -405,65 +392,59 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (context) => ArticleDetailScreen(article: article)),
         );
       },
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1D2035),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 120,
-              height: 120,
-              child: Image.asset(
-                article.imageUrl,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      article.category.toUpperCase(),
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFFE23B3B),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    Text(
-                      article.title,
-                      style: GoogleFonts.spaceGrotesk(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      article.source,
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFF6B7280),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: SizedBox(
+          height: 120,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Image.asset(
+                  article.imageUrl,
+                  fit: BoxFit.cover,
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        article.category.toUpperCase(),
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      Text(
+                        article.title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 16,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        article.source,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -5,6 +5,7 @@ class User {
   final String email;
   final String password;
   final DateTime registeredAt;
+  final String? profileImageUrl;
 
   String get name => '$firstName $lastName';
 
@@ -15,6 +16,7 @@ class User {
     required this.email,
     required this.password,
     required this.registeredAt,
+    this.profileImageUrl,
   });
 
   Map<String, dynamic> toJson() {
@@ -25,6 +27,7 @@ class User {
       'email': email,
       'password': password,
       'registeredAt': registeredAt.toIso8601String(),
+      'profileImageUrl': profileImageUrl,
     };
   }
 
@@ -36,6 +39,7 @@ class User {
       email: json['email'] ?? '',
       password: json['password'] ?? '',
       registeredAt: DateTime.parse(json['registeredAt']),
+      profileImageUrl: json['profileImageUrl'],
     );
   }
 }

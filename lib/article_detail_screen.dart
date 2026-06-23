@@ -26,7 +26,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     final isSaved = newsProvider.isSaved(widget.article.id);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       appBar: _buildAppBar(context),
       body: SingleChildScrollView(
         child: Column(
@@ -41,26 +40,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: const Color(0xFF0A0E21),
-      elevation: 0,
       centerTitle: true,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+        icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color, size: 28),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text(
-        'DAILY NEWS HUB',
-        style: GoogleFonts.spaceGrotesk(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.w900,
-          fontStyle: FontStyle.italic,
-          letterSpacing: -1.0,
-        ),
-      ),
+      title: const Text('DAILY NEWS HUB'),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search, color: Colors.white, size: 28),
+          icon: Icon(Icons.search, color: Theme.of(context).iconTheme.color, size: 28),
           onPressed: () {
             Navigator.push(
               context,
@@ -92,11 +80,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D2035),
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: Theme.of(context).cardTheme.shadowColor ?? Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -109,7 +97,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFE23B3B),
+              color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -126,12 +114,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           // Title
           Text(
             widget.article.title,
-            style: GoogleFonts.spaceGrotesk(
-              color: Colors.white,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontSize: 32,
-              fontWeight: FontWeight.w900,
               height: 1.1,
-              letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 24),
@@ -142,15 +127,13 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(Icons.person, color: Color(0xFF6B7280), size: 16),
+                    Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         widget.article.source,
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF6B7280),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -162,14 +145,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               const SizedBox(width: 16),
               Row(
                 children: [
-                  const Icon(Icons.access_time, color: Color(0xFF6B7280), size: 16),
+                  Icon(Icons.access_time, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), size: 16),
                   const SizedBox(width: 8),
                   Text(
                     widget.article.timeAgo,
-                    style: GoogleFonts.inter(
-                      color: const Color(0xFF6B7280),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -179,8 +160,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           const SizedBox(height: 32),
           // Divider
           Container(
-            height: 2,
-            color: const Color(0xFF2A2E4C),
+            height: 1,
+            color: Theme.of(context).dividerTheme.color,
           ),
           const SizedBox(height: 32),
           // Actions
@@ -188,12 +169,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildActionButton(
+                context,
                 icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
                 label: isSaved ? 'SAVED' : 'SAVE',
                 isActive: isSaved,
                 onTap: () => provider.toggleSave(widget.article.id),
               ),
               _buildActionButton(
+                context,
                 icon: Icons.share_outlined,
                 label: 'SHARE',
                 onTap: () async {
@@ -202,6 +185,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 },
               ),
               _buildActionButton(
+                context,
                 icon: Icons.chat_bubble_outline,
                 label: 'COMMENT',
                 onTap: () {
@@ -220,9 +204,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           // Article text
           Text(
             widget.article.content,
-            style: GoogleFonts.inter(
-              color: const Color(0xFFD1D5DB),
-              fontSize: 18,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               height: 1.8,
             ),
           ),
@@ -243,11 +225,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       children: [
         Text(
           'Comments (${comments.length})',
-          style: GoogleFonts.spaceGrotesk(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
         ),
         const SizedBox(height: 24),
         if (authProvider.isRegistered)
@@ -256,7 +234,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           Center(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE23B3B),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               onPressed: () {
@@ -283,7 +261,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2E4C),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -294,17 +272,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                       children: [
                         Text(
                           comment.userName,
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
                           _formatTime(comment.timestamp),
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF6B7280),
-                            fontSize: 12,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -312,8 +285,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     const SizedBox(height: 8),
                     Text(
                       comment.text,
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFFD1D5DB),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         height: 1.5,
                       ),
                     ),
@@ -335,12 +307,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         Expanded(
           child: TextField(
             controller: commentController,
-            style: const TextStyle(color: Colors.white),
+            style: Theme.of(context).textTheme.bodyMedium,
             decoration: InputDecoration(
               hintText: 'Add a comment as $userName...',
-              hintStyle: const TextStyle(color: Color(0xFF6B7280)),
+              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
               filled: true,
-              fillColor: const Color(0xFF2A2E4C),
+              fillColor: Theme.of(context).inputDecorationTheme.fillColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -351,7 +325,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.send, color: Color(0xFFE23B3B)),
+          icon: Icon(Icons.send, color: Theme.of(context).colorScheme.primary),
           onPressed: () {
             if (commentController.text.trim().isNotEmpty) {
               provider.addComment(widget.article.id, commentController.text.trim(), userName);
@@ -360,7 +334,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.logout, color: Color(0xFF6B7280)),
+          icon: Icon(Icons.logout, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
           tooltip: 'Logout',
           onPressed: () {
             Provider.of<AuthProvider>(context, listen: false).logout();
@@ -378,7 +352,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return 'Just now';
   }
 
-  Widget _buildActionButton({
+  Widget _buildActionButton(
+    BuildContext context, {
     required IconData icon,
     required String label,
     bool isActive = false,
@@ -390,14 +365,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         children: [
           Icon(
             icon,
-            color: isActive ? const Color(0xFFE23B3B) : Colors.white,
+            color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).iconTheme.color,
             size: 28,
           ),
           const SizedBox(height: 8),
           Text(
             label,
             style: GoogleFonts.spaceGrotesk(
-              color: isActive ? const Color(0xFFE23B3B) : Colors.white,
+              color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,

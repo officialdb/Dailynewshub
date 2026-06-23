@@ -52,12 +52,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -68,19 +67,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             Text(
               'CREATE ACCOUNT',
-              style: GoogleFonts.spaceGrotesk(
-                color: Colors.white,
-                fontSize: 32,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w900,
-                letterSpacing: -1.0,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Join us to engage with the news.',
-              style: GoogleFonts.inter(
-                color: const Color(0xFF6B7280),
-                fontSize: 16,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 48),
@@ -88,6 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 Expanded(
                   child: _buildTextField(
+                    context,
                     controller: _firstNameController,
                     label: 'FIRST NAME',
                     icon: Icons.person_outline,
@@ -96,6 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildTextField(
+                    context,
                     controller: _lastNameController,
                     label: 'LAST NAME',
                     icon: Icons.person_outline,
@@ -105,6 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 24),
             _buildTextField(
+              context,
               controller: _emailController,
               label: 'EMAIL',
               icon: Icons.email_outlined,
@@ -112,6 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 24),
             _buildTextField(
+              context,
               controller: _passwordController,
               label: 'PASSWORD',
               icon: Icons.lock_outline,
@@ -123,7 +122,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               height: 56,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE23B3B),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -133,9 +132,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
                         'SIGN UP',
-                        style: GoogleFonts.spaceGrotesk(
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Colors.white,
-                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
                         ),
@@ -154,12 +152,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: RichText(
                   text: TextSpan(
                     text: "Already have an account? ",
-                    style: GoogleFonts.inter(color: const Color(0xFF6B7280)),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
                     children: [
                       TextSpan(
                         text: 'Log In',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFFE23B3B),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -174,7 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildTextField(BuildContext context, {
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -186,9 +186,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.spaceGrotesk(
-            color: const Color(0xFF6B7280),
-            fontSize: 12,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
           ),
@@ -198,18 +197,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
-          style: const TextStyle(color: Colors.white),
+          style: Theme.of(context).textTheme.bodyMedium,
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFF1D2035),
-            prefixIcon: Icon(icon, color: const Color(0xFF6B7280)),
+            fillColor: Theme.of(context).inputDecorationTheme.fillColor,
+            prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFE23B3B), width: 2),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
             ),
           ),
         ),

@@ -36,7 +36,7 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(
         index: _selectedIndex,
         children: _screens,
@@ -47,10 +47,10 @@ class _MainLayoutState extends State<MainLayout> {
 
   Widget _buildBottomNavigationBar(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0E21),
+      decoration: BoxDecoration(
+        color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(color: Color(0xFF1D2035), width: 1),
+          top: BorderSide(color: Theme.of(context).dividerTheme.color!, width: 1),
         ),
       ),
       child: SafeArea(
@@ -59,10 +59,10 @@ class _MainLayoutState extends State<MainLayout> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home, 'Home'),
-              _buildNavItem(1, Icons.grid_view, 'Categories'),
-              _buildNavItem(2, Icons.bookmark, 'Saved'),
-              _buildNavItem(3, Icons.person, 'Profile'),
+              _buildNavItem(context, 0, Icons.home, 'Home'),
+              _buildNavItem(context, 1, Icons.grid_view, 'Categories'),
+              _buildNavItem(context, 2, Icons.bookmark, 'Saved'),
+              _buildNavItem(context, 3, Icons.person, 'Profile'),
             ],
           ),
         ),
@@ -70,9 +70,9 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(BuildContext context, int index, IconData icon, String label) {
     final isSelected = _selectedIndex == index;
-    final color = isSelected ? const Color(0xFFE23B3B) : const Color(0xFF6B7280);
+    final color = isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
 
     return GestureDetector(
       onTap: () {
@@ -90,9 +90,9 @@ class _MainLayoutState extends State<MainLayout> {
               Container(
                 width: 32,
                 height: 4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE23B3B),
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(4),
                     bottomRight: Radius.circular(4),
                   ),

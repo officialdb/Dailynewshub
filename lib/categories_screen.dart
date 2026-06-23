@@ -26,7 +26,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
       appBar: _buildAppBar(context),
       body: Column(
         children: [
@@ -37,9 +36,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildContentHeader(articles.length),
+                  _buildContentHeader(context, articles.length),
                   const SizedBox(height: 24),
-                  _buildArticleList(articles),
+                  _buildArticleList(context, articles),
                   const SizedBox(height: 96), // Space for bottom nav
                 ],
               ),
@@ -52,17 +51,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: const Color(0xFF0A0E21),
-      elevation: 0,
       centerTitle: true,
-      title: Text(
-        'Categories',
-        style: GoogleFonts.spaceGrotesk(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      title: const Text('Categories'),
     );
   }
 
@@ -88,17 +78,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFE23B3B) : Colors.transparent,
+                  color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFFE23B3B) : const Color(0xFF6B7280),
-                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   category,
                   style: GoogleFonts.spaceGrotesk(
-                    color: isSelected ? Colors.white : const Color(0xFF6B7280),
+                    color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -111,36 +98,31 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  Widget _buildContentHeader(int count) {
+  Widget _buildContentHeader(BuildContext context, int count) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
         Text(
           _selectedCategory.toUpperCase(),
-          style: GoogleFonts.spaceGrotesk(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
         ),
         const SizedBox(width: 12),
         Text(
           '$count ARTICLES',
-          style: GoogleFonts.inter(
-            color: const Color(0xFF6B7280),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildArticleList(List<Article> articles) {
+  Widget _buildArticleList(BuildContext context, List<Article> articles) {
     if (articles.isEmpty) {
-      return const Center(
-        child: Text('No articles found.', style: TextStyle(color: Colors.white)),
+      return Center(
+        child: Text('No articles found.', style: Theme.of(context).textTheme.bodyMedium),
       );
     }
     return ListView.separated(
@@ -149,12 +131,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       itemCount: articles.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        return _buildArticleCard(articles[index]);
+        return _buildArticleCard(context, articles[index]);
       },
     );
   }
 
-  Widget _buildArticleCard(Article article) {
+  Widget _buildArticleCard(BuildContext context, Article article) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -162,71 +144,63 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           MaterialPageRoute(builder: (context) => ArticleDetailScreen(article: article)),
         );
       },
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1D2035),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 120,
-              height: 120,
-              child: Image.asset(
-                article.imageUrl,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      article.title,
-                      style: GoogleFonts.spaceGrotesk(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            article.source,
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          article.timeAgo,
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF6B7280),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: SizedBox(
+          height: 120,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Image.asset(
+                  article.imageUrl,
+                  fit: BoxFit.cover,
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        article.title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 16,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              article.source,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            article.timeAgo,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

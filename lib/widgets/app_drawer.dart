@@ -16,7 +16,7 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: const Color(0xFF0A0E21),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,67 +30,68 @@ class AppDrawer extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1D2035),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE23B3B), width: 2),
                     ),
-                    child: const Icon(Icons.newspaper, color: Colors.white, size: 32),
+                    child: Icon(Icons.newspaper, color: Theme.of(context).colorScheme.primary, size: 32),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'DAILY NEWS HUB',
-                    style: GoogleFonts.spaceGrotesk(
-                      color: Colors.white,
-                      fontSize: 24,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w900,
-                      letterSpacing: -1.0,
                     ),
                   ),
                   Text(
                     'Your daily dose of reality.',
-                    style: GoogleFonts.inter(
-                      color: const Color(0xFF6B7280),
-                      fontSize: 14,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(color: Color(0xFF374151), thickness: 1),
+            Divider(color: Theme.of(context).dividerTheme.color, thickness: 1),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 children: [
                   _buildDrawerItem(
+                    context,
                     icon: Icons.home,
                     title: 'Home',
                     onTap: () => _navigateToTab(context, 0),
                   ),
                   _buildDrawerItem(
+                    context,
                     icon: Icons.trending_up,
                     title: 'Trending',
                     onTap: () => _navigateToTab(context, 0),
                   ),
                   _buildDrawerItem(
+                    context,
                     icon: Icons.category,
                     title: 'Categories',
                     onTap: () => _navigateToTab(context, 1),
                   ),
                   _buildDrawerItem(
+                    context,
                     icon: Icons.bookmark,
                     title: 'Saved Articles',
                     onTap: () => _navigateToTab(context, 2),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    child: Divider(color: Color(0xFF374151), thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Divider(color: Theme.of(context).dividerTheme.color, thickness: 1),
                   ),
                   _buildDrawerItem(
+                    context,
                     icon: Icons.settings,
                     title: 'Settings',
                     onTap: () => _navigateToTab(context, 3),
                   ),
                   _buildDrawerItem(
+                    context,
                     icon: Icons.help_outline,
                     title: 'Help & Support',
                     onTap: () {
@@ -107,9 +108,8 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(24.0),
               child: Text(
                 'Version 1.0.0',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF6B7280),
-                  fontSize: 12,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -119,18 +119,17 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem({
+  Widget _buildDrawerItem(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white),
+      leading: Icon(icon, color: Theme.of(context).iconTheme.color),
       title: Text(
         title,
-        style: GoogleFonts.spaceGrotesk(
-          color: Colors.white,
-          fontSize: 16,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.bold,
         ),
       ),
