@@ -17,9 +17,8 @@ class ApiConfig {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
       case TargetPlatform.iOS:
-        // Using a fixed localtunnel subdomain so the APK doesn't need to be rebuilt every time.
-        // You MUST run: npx localtunnel --port 8000 --subdomain dailynewshub2026
-        return 'https://dailynewshub2026.loca.lt/api/v1';
+        // Default mobile base: deployed backend (use --dart-define to override)
+        return 'http://51.21.221.143:8000/api/v1';
       case TargetPlatform.macOS:
         return 'http://localhost:8001/api/v1';
       default:

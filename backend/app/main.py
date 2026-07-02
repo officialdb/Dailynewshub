@@ -48,6 +48,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Daily News Hub API", version="1.0.0", lifespan=lifespan)
 app.mount("/media", StaticFiles(directory=uploads_root), name="media")
 
+# NOTE: `allow_origins=["*"]` is intentionally permissive here for development
+# and mobile testing. When deploying to production or serving a web frontend,
+# restrict `allow_origins` to the specific origins (e.g., https://your-domain.com).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
