@@ -54,3 +54,19 @@ android/key.properties
 
 
 DEPLOYMENT.md
+
+# Environment files (do not commit secrets)
+.env
+.env.docker
+.env.*.local
+*.env
+!.env.example
+!.env.docker.example
+
+# Common secret file patterns
+firebase-credentials.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx

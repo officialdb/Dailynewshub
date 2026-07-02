@@ -1,6 +1,5 @@
 __pycache__/
 *.pyc
-.env
 .egg-info/
 dist/
 build/
@@ -11,3 +10,11 @@ firebase-credentials.json
 uploads/
 alembic/versions/*.py
 !alembic/versions/__init__.py
+ 
+# Ignore local env files and secrets
+.env
+.env.docker
+.env.*.local
+*.env
+!.env.example
+!.env.docker.example
