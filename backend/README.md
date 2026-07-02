@@ -172,3 +172,4 @@ Ensure production environment sets required variables:
 - `CELERY_BROKER_URL`
 - `CELERY_RESULT_BACKEND`
 - `FIREBASE_CREDENTIALS_PATH`
+
