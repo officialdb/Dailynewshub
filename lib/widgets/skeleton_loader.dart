@@ -76,17 +76,9 @@ class TrendingSkeletonCard extends StatelessWidget {
                   color: Colors.white,
                 ),
                 const SizedBox(height: 4),
-                Container(
-                  width: 200,
-                  height: 24,
-                  color: Colors.white,
-                ),
+                Container(width: 200, height: 24, color: Colors.white),
                 const SizedBox(height: 12),
-                Container(
-                  width: 100,
-                  height: 16,
-                  color: Colors.white,
-                ),
+                Container(width: 100, height: 16, color: Colors.white),
               ],
             ),
           ),
@@ -117,11 +109,7 @@ class ListArticleSkeletonCard extends StatelessWidget {
         highlightColor: highlightColor,
         child: Row(
           children: [
-            Container(
-              width: 120,
-              height: 120,
-              color: Colors.white,
-            ),
+            Container(width: 120, height: 120, color: Colors.white),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -129,11 +117,7 @@ class ListArticleSkeletonCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 60,
-                      height: 12,
-                      color: Colors.white,
-                    ),
+                    Container(width: 60, height: 12, color: Colors.white),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -143,18 +127,10 @@ class ListArticleSkeletonCard extends StatelessWidget {
                           color: Colors.white,
                         ),
                         const SizedBox(height: 4),
-                        Container(
-                          width: 150,
-                          height: 16,
-                          color: Colors.white,
-                        ),
+                        Container(width: 150, height: 16, color: Colors.white),
                       ],
                     ),
-                    Container(
-                      width: 80,
-                      height: 12,
-                      color: Colors.white,
-                    ),
+                    Container(width: 80, height: 12, color: Colors.white),
                   ],
                 ),
               ),

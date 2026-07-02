@@ -35,39 +35,47 @@ class MockData {
   static final List<Article> allArticles = [
     Article(
       id: 'a1',
-      title: 'Global Markets Rally as Tech Sector Shows Unexpected Resurgence in Q3',
+      title:
+          'Global Markets Rally as Tech Sector Shows Unexpected Resurgence in Q3',
       category: 'Economy',
       source: 'Financial Times • 2h ago',
       timeAgo: '2h ago',
       imageUrl: 'assets/images/economy_1.jpg',
-      content: 'Global financial markets experienced a significant surge today, driven by an unexpected rally in the technology sector. Major indices reached record highs as leading tech firms reported earnings that far exceeded Wall Street expectations. Analysts attribute this sudden resurgence to breakthroughs in artificial intelligence integration and robust consumer demand for next-generation hardware. The ripple effect was felt across global markets, with Asian and European exchanges following the upward trend established in New York.',
+      content:
+          'Global financial markets experienced a significant surge today, driven by an unexpected rally in the technology sector. Major indices reached record highs as leading tech firms reported earnings that far exceeded Wall Street expectations. Analysts attribute this sudden resurgence to breakthroughs in artificial intelligence integration and robust consumer demand for next-generation hardware. The ripple effect was felt across global markets, with Asian and European exchanges following the upward trend established in New York.',
     ),
     Article(
       id: 'a2',
-      title: 'New Space Telescope Captures Unprecedented Detail of Distant Exoplanet Atmosphere',
+      title:
+          'New Space Telescope Captures Unprecedented Detail of Distant Exoplanet Atmosphere',
       category: 'Science',
       source: 'Space Daily • 5h ago',
       timeAgo: '5h ago',
       imageUrl: 'assets/images/science_1.jpg',
-      content: 'In a landmark achievement for astronomy, the newly deployed NextGen Space Telescope has captured high-resolution spectral data of an exoplanet atmosphere located 40 light-years away. The analysis revealed the presence of complex organic molecules and water vapor, sparking intense debate within the scientific community regarding the planet\'s potential habitability.',
+      content:
+          'In a landmark achievement for astronomy, the newly deployed NextGen Space Telescope has captured high-resolution spectral data of an exoplanet atmosphere located 40 light-years away. The analysis revealed the presence of complex organic molecules and water vapor, sparking intense debate within the scientific community regarding the planet\'s potential habitability.',
     ),
     Article(
       id: 'a3',
-      title: 'Breakthrough in Quantum Computing Promises to Revolutionize Data Security Protocols',
+      title:
+          'Breakthrough in Quantum Computing Promises to Revolutionize Data Security Protocols',
       category: 'Technology',
       source: 'Tech Insider • 2d ago',
       timeAgo: '2d ago',
       imageUrl: 'assets/images/technology_1.jpg',
-      content: 'Researchers at the Institute for Advanced Physics have successfully maintained quantum coherence at room temperature for a record-breaking 30 minutes. This breakthrough overcomes one of the most significant hurdles in developing practical quantum computers.',
+      content:
+          'Researchers at the Institute for Advanced Physics have successfully maintained quantum coherence at room temperature for a record-breaking 30 minutes. This breakthrough overcomes one of the most significant hurdles in developing practical quantum computers.',
     ),
     Article(
       id: 'a4',
-      title: 'Major City Initiates Groundbreaking Urban Green Initiative Amidst Climate Concerns',
+      title:
+          'Major City Initiates Groundbreaking Urban Green Initiative Amidst Climate Concerns',
       category: 'Environment',
       source: 'EcoWatch • 1d ago',
       timeAgo: '1d ago',
       imageUrl: 'assets/images/environment_3.jpg',
-      content: 'In response to escalating climate concerns, Metropolis has launched an ambitious urban greening project aimed at converting 30% of its concrete surfaces into sustainable eco-spaces by 2030. The initiative focuses on creating a network of vertical gardens, rooftop parks, and green corridors designed to reduce the urban heat island effect, improve air quality, and enhance biodiversity within the city center. Early estimates suggest the project could lower local temperatures by up to 2 degrees Celsius during peak summer months.',
+      content:
+          'In response to escalating climate concerns, Metropolis has launched an ambitious urban greening project aimed at converting 30% of its concrete surfaces into sustainable eco-spaces by 2030. The initiative focuses on creating a network of vertical gardens, rooftop parks, and green corridors designed to reduce the urban heat island effect, improve air quality, and enhance biodiversity within the city center. Early estimates suggest the project could lower local temperatures by up to 2 degrees Celsius during peak summer months.',
     ),
     Article(
       id: 'a5',
@@ -76,7 +84,8 @@ class MockData {
       source: 'Tech Weekly • 4h ago',
       timeAgo: '4h ago',
       imageUrl: 'assets/images/technology_2.jpg',
-      content: 'In a surprising move, the world\'s five largest technology companies have formed an independent oversight committee dedicated to establishing ethical guidelines for the development and deployment of artificial intelligence. The partnership aims to address growing concerns regarding algorithmic bias, data privacy, and the societal impact of automation. The committee will consist of independent researchers, ethicists, and civil rights advocates who will have the authority to review and audit AI systems before public release.',
+      content:
+          'In a surprising move, the world\'s five largest technology companies have formed an independent oversight committee dedicated to establishing ethical guidelines for the development and deployment of artificial intelligence. The partnership aims to address growing concerns regarding algorithmic bias, data privacy, and the societal impact of automation. The committee will consist of independent researchers, ethicists, and civil rights advocates who will have the authority to review and audit AI systems before public release.',
     ),
     Article(
       id: 'a6',
@@ -85,25 +94,30 @@ class MockData {
       source: 'Global Sports Net • 6h ago',
       timeAgo: '6h ago',
       imageUrl: 'assets/images/sports_1.jpg',
-      content: 'The international soccer championship concluded in spectacular fashion last night, with the underdog team securing a victory in the final minutes of double overtime. The thrilling match broke viewership records worldwide, drawing an estimated global audience of over one billion people. The winning goal, a stunning volley from outside the penalty box, has already been hailed by commentators as one of the greatest moments in the sport\'s history.',
+      content:
+          'The international soccer championship concluded in spectacular fashion last night, with the underdog team securing a victory in the final minutes of double overtime. The thrilling match broke viewership records worldwide, drawing an estimated global audience of over one billion people. The winning goal, a stunning volley from outside the penalty box, has already been hailed by commentators as one of the greatest moments in the sport\'s history.',
     ),
     Article(
       id: 'a7',
-      title: 'Revolutionary Wearable Device Can Detect Early Signs of Heart Disease',
+      title:
+          'Revolutionary Wearable Device Can Detect Early Signs of Heart Disease',
       category: 'Health',
       source: 'Medical Daily • 12h ago',
       timeAgo: '12h ago',
       imageUrl: 'assets/images/health_1.jpg',
-      content: 'A team of biomedical engineers has unveiled a new wearable device capable of monitoring subtle changes in cardiovascular health with unprecedented accuracy. The device, which resembles a standard smartwatch, uses advanced sensors and machine learning algorithms to analyze blood flow, heart rate variability, and arterial stiffness. In clinical trials, the wearable successfully identified early indicators of heart disease in patients months before traditional symptoms appeared.',
+      content:
+          'A team of biomedical engineers has unveiled a new wearable device capable of monitoring subtle changes in cardiovascular health with unprecedented accuracy. The device, which resembles a standard smartwatch, uses advanced sensors and machine learning algorithms to analyze blood flow, heart rate variability, and arterial stiffness. In clinical trials, the wearable successfully identified early indicators of heart disease in patients months before traditional symptoms appeared.',
     ),
     Article(
       id: 'a8',
-      title: 'Critically Acclaimed Director Announces Unexpected Sequel to Classic Film',
+      title:
+          'Critically Acclaimed Director Announces Unexpected Sequel to Classic Film',
       category: 'Entertainment',
       source: 'Cinema News • 1d ago',
       timeAgo: '1d ago',
       imageUrl: 'assets/images/entertainment_1.jpg',
-      content: 'Fans were taken by surprise today when visionary director Elena Rostova announced a sequel to her beloved 1998 cinematic masterpiece. Speculation had circulated for years regarding a potential follow-up, but Rostova had previously dismissed the idea, stating the original film was a complete narrative. However, in a press conference this morning, she revealed that a newly discovered script, penned by the original writer shortly before their passing, inspired her to return to the beloved universe.',
+      content:
+          'Fans were taken by surprise today when visionary director Elena Rostova announced a sequel to her beloved 1998 cinematic masterpiece. Speculation had circulated for years regarding a potential follow-up, but Rostova had previously dismissed the idea, stating the original film was a complete narrative. However, in a press conference this morning, she revealed that a newly discovered script, penned by the original writer shortly before their passing, inspired her to return to the beloved universe.',
     ),
     Article(
       id: 'a9',
@@ -112,7 +126,8 @@ class MockData {
       source: 'Green Energy Tribune • 2d ago',
       timeAgo: '2d ago',
       imageUrl: 'assets/images/environment_2.jpg',
-      content: 'For the first time in history, renewable energy sources have generated more electricity than fossil fuels over a full calendar year in a major European economy. The milestone was achieved through a combination of massive investments in offshore wind farms, expanded solar capacity, and a significant reduction in coal-fired power generation. Experts predict that this trend will continue to accelerate across the continent.',
+      content:
+          'For the first time in history, renewable energy sources have generated more electricity than fossil fuels over a full calendar year in a major European economy. The milestone was achieved through a combination of massive investments in offshore wind farms, expanded solar capacity, and a significant reduction in coal-fired power generation. Experts predict that this trend will continue to accelerate across the continent.',
     ),
     Article(
       id: 'a10',
@@ -121,16 +136,19 @@ class MockData {
       source: 'Future Food • 3d ago',
       timeAgo: '3d ago',
       imageUrl: 'assets/images/science_4.jpg',
-      content: 'A food technology startup has successfully created a synthetic meat product that is molecularly indistinguishable from its animal-derived counterpart. Unlike previous plant-based alternatives, this new product is cultivated from a small sample of animal cells in a lab environment. Blind taste tests conducted by renowned chefs and food critics resulted in unanimous agreement that the synthetic meat perfectly replicates the taste, texture, and nutritional profile of conventional beef.',
+      content:
+          'A food technology startup has successfully created a synthetic meat product that is molecularly indistinguishable from its animal-derived counterpart. Unlike previous plant-based alternatives, this new product is cultivated from a small sample of animal cells in a lab environment. Blind taste tests conducted by renowned chefs and food critics resulted in unanimous agreement that the synthetic meat perfectly replicates the taste, texture, and nutritional profile of conventional beef.',
     ),
     Article(
       id: 'a11',
-      title: 'Historical Discovery Changes Understanding of Ancient Civilizations',
+      title:
+          'Historical Discovery Changes Understanding of Ancient Civilizations',
       category: 'Science',
       source: 'Archaeology Today • 4d ago',
       timeAgo: '4d ago',
       imageUrl: 'assets/images/science_3.jpg',
-      content: 'Excavations in South America have revealed the ruins of a massive ancient city, previously hidden beneath dense jungle canopy. The discovery challenges existing timelines of human settlement in the region, suggesting advanced civilizations existed thousands of years earlier than previously believed. The city features complex irrigation systems, monumental architecture, and evidence of a sophisticated written language that linguists are currently working to decipher.',
+      content:
+          'Excavations in South America have revealed the ruins of a massive ancient city, previously hidden beneath dense jungle canopy. The discovery challenges existing timelines of human settlement in the region, suggesting advanced civilizations existed thousands of years earlier than previously believed. The city features complex irrigation systems, monumental architecture, and evidence of a sophisticated written language that linguists are currently working to decipher.',
     ),
     Article(
       id: 'a12',
@@ -139,16 +157,19 @@ class MockData {
       source: 'Market Watch • 5d ago',
       timeAgo: '5d ago',
       imageUrl: 'assets/images/economy_2.jpg',
-      content: 'Global stock markets experienced a sharp downturn today following an unexpected decision by the Central Bank to increase interest rates by half a percentage point. The move, intended to curb rising inflation, caught investors off guard and triggered widespread selling across major indices. Analysts remain divided on the long-term impact of the rate hike, with some praising the bank\'s decisive action against inflation, while others warn it could stifle economic growth and lead to a recession.',
+      content:
+          'Global stock markets experienced a sharp downturn today following an unexpected decision by the Central Bank to increase interest rates by half a percentage point. The move, intended to curb rising inflation, caught investors off guard and triggered widespread selling across major indices. Analysts remain divided on the long-term impact of the rate hike, with some praising the bank\'s decisive action against inflation, while others warn it could stifle economic growth and lead to a recession.',
     ),
     Article(
       id: 'a13',
-      title: 'Electric Vehicle Sales Surpass Traditional Cars for the First Time',
+      title:
+          'Electric Vehicle Sales Surpass Traditional Cars for the First Time',
       category: 'Business',
       source: 'Auto World • 1h ago',
       timeAgo: '1h ago',
       imageUrl: 'assets/images/business_1.jpg',
-      content: 'In a historic shift, electric vehicle (EV) sales have officially outpaced internal combustion engine vehicles this quarter. This milestone marks a significant acceleration in consumer adoption, driven by government incentives, expanding charging infrastructure, and recent drops in battery prices. Major automakers are now scrambling to adjust their long-term manufacturing strategies to keep up with the surging demand.',
+      content:
+          'In a historic shift, electric vehicle (EV) sales have officially outpaced internal combustion engine vehicles this quarter. This milestone marks a significant acceleration in consumer adoption, driven by government incentives, expanding charging infrastructure, and recent drops in battery prices. Major automakers are now scrambling to adjust their long-term manufacturing strategies to keep up with the surging demand.',
     ),
     Article(
       id: 'a14',
@@ -157,7 +178,8 @@ class MockData {
       source: 'Wellness Weekly • 8h ago',
       timeAgo: '8h ago',
       imageUrl: 'assets/images/health_2.jpg',
-      content: 'A rapidly growing viral diet trend has prompted warnings from leading nutritionists and health organizations. The extreme fasting regimen, which restricts eating windows to just two hours a day, has been heavily promoted on social media platforms. While some users report rapid weight loss, medical professionals warn that such severe restriction can lead to nutrient deficiencies, metabolic damage, and severe eating disorders.',
+      content:
+          'A rapidly growing viral diet trend has prompted warnings from leading nutritionists and health organizations. The extreme fasting regimen, which restricts eating windows to just two hours a day, has been heavily promoted on social media platforms. While some users report rapid weight loss, medical professionals warn that such severe restriction can lead to nutrient deficiencies, metabolic damage, and severe eating disorders.',
     ),
     Article(
       id: 'a15',
@@ -166,7 +188,8 @@ class MockData {
       source: 'Community News • 10h ago',
       timeAgo: '10h ago',
       imageUrl: 'assets/images/technology_3.jpg',
-      content: 'A group of determined teenagers from Oakridge High School has taken first place at the prestigious Global Robotics Challenge held in Tokyo. Their fully autonomous search-and-rescue robot navigated complex obstacle courses significantly faster than collegiate and professional teams. The students built the robot entirely from recycled materials, utilizing an innovative AI algorithm they developed during after-school sessions.',
+      content:
+          'A group of determined teenagers from Oakridge High School has taken first place at the prestigious Global Robotics Challenge held in Tokyo. Their fully autonomous search-and-rescue robot navigated complex obstacle courses significantly faster than collegiate and professional teams. The students built the robot entirely from recycled materials, utilizing an innovative AI algorithm they developed during after-school sessions.',
     ),
     Article(
       id: 'a16',
@@ -175,7 +198,8 @@ class MockData {
       source: 'Climate Daily • 14h ago',
       timeAgo: '14h ago',
       imageUrl: 'assets/images/environment_3.jpg',
-      content: 'Meteorologists have issued severe weather warnings as an unprecedented heatwave settles over the continent. Temperatures have soared past 40°C in regions unaccustomed to such extreme conditions, straining local power grids as air conditioning usage skyrockets. Emergency services are on high alert, advising citizens to remain indoors during peak daylight hours and stay hydrated as the heat dome shows no signs of dissipating.',
+      content:
+          'Meteorologists have issued severe weather warnings as an unprecedented heatwave settles over the continent. Temperatures have soared past 40°C in regions unaccustomed to such extreme conditions, straining local power grids as air conditioning usage skyrockets. Emergency services are on high alert, advising citizens to remain indoors during peak daylight hours and stay hydrated as the heat dome shows no signs of dissipating.',
     ),
     Article(
       id: 'a17',
@@ -184,7 +208,8 @@ class MockData {
       source: 'Music Times • 18h ago',
       timeAgo: '18h ago',
       imageUrl: 'assets/images/entertainment_2.jpg',
-      content: 'To the delight of millions of fans, the reigning pop superstar unexpectedly released a full-length visual album at midnight. The intricately produced project features 14 tracks, each accompanied by a short cinematic video exploring themes of heartbreak, fame, and self-discovery. Critics are already praising the album as a bold artistic evolution, while streaming platforms have reported brief outages due to the overwhelming surge in traffic.',
+      content:
+          'To the delight of millions of fans, the reigning pop superstar unexpectedly released a full-length visual album at midnight. The intricately produced project features 14 tracks, each accompanied by a short cinematic video exploring themes of heartbreak, fame, and self-discovery. Critics are already praising the album as a bold artistic evolution, while streaming platforms have reported brief outages due to the overwhelming surge in traffic.',
     ),
     Article(
       id: 'a18',
@@ -193,8 +218,8 @@ class MockData {
       source: 'Global Post • 20h ago',
       timeAgo: '20h ago',
       imageUrl: 'assets/images/politics_1.jpg',
-      content: 'Following years of grueling negotiations mediated by international diplomats, a historic peace treaty has finally been signed between the two warring nations. The agreement outlines a phased demilitarization process, the establishment of joint economic zones, and a clear path for refugees to return to their homes safely. World leaders have widely commended the breakthrough, expressing cautious optimism for long-term stability in the region.',
+      content:
+          'Following years of grueling negotiations mediated by international diplomats, a historic peace treaty has finally been signed between the two warring nations. The agreement outlines a phased demilitarization process, the establishment of joint economic zones, and a clear path for refugees to return to their homes safely. World leaders have widely commended the breakthrough, expressing cautious optimism for long-term stability in the region.',
     ),
   ];
 }
-

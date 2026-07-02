@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../main_layout.dart';
+import '../screens/main_layout.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -30,10 +29,16 @@ class AppDrawer extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(Icons.newspaper, color: Theme.of(context).colorScheme.primary, size: 32),
+                    child: Icon(
+                      Icons.newspaper,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 32,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -45,7 +50,9 @@ class AppDrawer extends StatelessWidget {
                   Text(
                     'Your daily dose of reality.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -81,8 +88,14 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _navigateToTab(context, 2),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    child: Divider(color: Theme.of(context).dividerTheme.color, thickness: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    child: Divider(
+                      color: Theme.of(context).dividerTheme.color,
+                      thickness: 1,
+                    ),
                   ),
                   _buildDrawerItem(
                     context,
@@ -97,7 +110,9 @@ class AppDrawer extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Help & Support coming soon!')),
+                        const SnackBar(
+                          content: Text('Help & Support coming soon!'),
+                        ),
                       );
                     },
                   ),
@@ -109,7 +124,9 @@ class AppDrawer extends StatelessWidget {
               child: Text(
                 'Version 1.0.0',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -129,9 +146,9 @@ class AppDrawer extends StatelessWidget {
       leading: Icon(icon, color: Theme.of(context).iconTheme.color),
       title: Text(
         title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 24),
       onTap: onTap,

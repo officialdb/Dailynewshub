@@ -1,0 +1,201 @@
+"You are a senior Python backend engineer. Scaffold a production-ready FastAPI backend project for a mobile news application called Daily News Hub. The parent folder is dailynewshub/. The backend lives inside dailynewshub/backend/. Use the following exact folder structure and conventions:
+Exact Folder Structure:
+
+dailynewshub/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── v1/
+│   │   │       ├── __init__.py
+│   │   │       ├── router.py
+│   │   │       └── endpoints/
+│   │   │           ├── __init__.py
+│   │   │           ├── auth.py
+│   │   │           ├── articles.py
+│   │   │           ├── categories.py
+│   │   │           ├── bookmarks.py
+│   │   │           ├── users.py
+│   │   │           ├── admin.py
+│   │   │           └── websocket.py
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py
+│   │   │   ├── security.py
+│   │   │   ├── dependencies.py
+│   │   │   └── scheduler.py
+│   │   ├── db/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── session.py
+│   │   │   └── init_db.py
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── user.py
+│   │   │   ├── article.py
+│   │   │   ├── category.py
+│   │   │   ├── bookmark.py
+│   │   │   ├── notification.py
+│   │   │   └── device_token.py
+│   │   ├── schemas/
+│   │   │   ├── __init__.py
+│   │   │   ├── user.py
+│   │   │   ├── article.py
+│   │   │   ├── category.py
+│   │   │   ├── bookmark.py
+│   │   │   └── notification.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── news_fetcher.py
+│   │   │   ├── push_notification.py
+│   │   │   └── analytics.py
+│   │   ├── websocket/
+│   │   │   ├── __init__.py
+│   │   │   └── connection_manager.py
+│   │   └── main.py
+│   ├── alembic/
+│   │   ├── versions/
+│   │   └── env.py
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   ├── test_auth.py
+│   │   ├── test_articles.py
+│   │   └── test_admin.py
+│   ├── .env
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── alembic.ini
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── README.md
+├── frontend/
+│   └── (Flutter app — do not scaffold this)
+├── docker-compose.yml
+└── README.md
+
+
+Tech Stack:
+
+Framework: FastAPI
+Database: PostgreSQL
+ORM: SQLAlchemy (async) + Alembic for migrations
+Auth: JWT using python-jose + passlib bcrypt
+Scheduler: APScheduler for fetching news every 30 mins from Currents API
+WebSocket: FastAPI native WebSockets with a ConnectionManager class
+Push Notifications: Firebase FCM via firebase-admin SDK
+News Source: Currents API
+Cache: Redis
+Background Tasks: Celery + Redis
+
+API versioning: All routes must be prefixed with /api/v1/
+Routes to scaffold:
+
+Auth — /api/v1/auth/
+
+POST   /api/v1/auth/register
+POST   /api/v1/auth/login
+POST   /api/v1/auth/logout
+POST   /api/v1/auth/refresh-token
+
+Articles — /api/v1/articles/
+
+GET    /api/v1/articles
+GET    /api/v1/articles/{id}
+GET    /api/v1/articles/trending
+GET    /api/v1/articles/category/{slug}
+GET    /api/v1/articles/search?q=
+
+
+Categories — /api/v1/categories/
+
+GET    /api/v1/categories
+POST   /api/v1/categories
+PUT    /api/v1/categories/{id}
+DELETE /api/v1/categories/{id}
+
+
+Bookmarks — /api/v1/bookmarks/
+
+GET    /api/v1/bookmarks
+POST   /api/v1/bookmarks/{article_id}
+DELETE /api/v1/bookmarks/{article_id}
+
+Users — /api/v1/users/
+
+GET    /api/v1/users/me
+PUT    /api/v1/users/me
+POST   /api/v1/users/device-token
+
+Admin — /api/v1/admin/
+
+GET    /api/v1/admin/users
+PUT    /api/v1/admin/users/{id}
+DELETE /api/v1/admin/users/{id}
+GET    /api/v1/admin/articles
+POST   /api/v1/admin/articles
+PUT    /api/v1/admin/articles/{id}
+DELETE /api/v1/admin/articles/{id}
+GET    /api/v1/admin/analytics
+POST   /api/v1/admin/notifications/send
+
+WebSocket — /api/v1/ws/
+
+WS     /api/v1/ws/news-feed
+
+File by file scaffold instructions:
+
+backend/app/main.py — FastAPI app instance, include all routers from api/v1/router.py, CORS middleware allowing all origins, startup and shutdown events using lifespan context manager, Redis connection on startup, APScheduler startup, app title 'Daily News Hub API', version '1.0.0'
+backend/app/core/config.py — Pydantic BaseSettings class loading all env variables from .env: APP_NAME, DEBUG, DATABASE_URL, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, CURRENTS_API_KEY, CURRENTS_API_URL, FIREBASE_CREDENTIALS_PATH, REDIS_URL, CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+backend/app/core/security.py — create_access_token, create_refresh_token, verify_token, get_password_hash, verify_password using passlib bcrypt and python-jose JWT
+backend/app/core/dependencies.py — get_db async dependency yielding SQLAlchemy async session, get_current_user dependency decoding JWT from Authorization header and returning user, get_current_admin dependency checking user is_admin flag and raising 403 if not
+backend/app/core/scheduler.py — APScheduler AsyncIOScheduler setup, add job to run news_fetcher.fetch_and_save_articles every 30 minutes, start scheduler on app startup
+backend/app/db/base.py — SQLAlchemy declarative base class
+backend/app/db/session.py — async SQLAlchemy engine created from DATABASE_URL, AsyncSessionLocal factory, get_db function
+backend/app/db/init_db.py — async function create_tables() that runs Base.metadata.create_all on startup
+backend/app/models/user.py — User model: id (UUID), name, email (unique), password_hash, avatar_url, is_active (default True), is_admin (default False), created_at, updated_at. Relationships: bookmarks, device_tokens
+backend/app/models/article.py — Article model: id (UUID), title, description, content, image_url, source_name, source_url, author, category_id (FK), is_featured (default False), is_trending (default False), view_count (default 0), published_at, created_at, updated_at. Relationships: category, bookmarks
+backend/app/models/category.py — Category model: id (UUID), name, slug (unique), icon, created_at, updated_at. Relationships: articles
+backend/app/models/bookmark.py — Bookmark model: id (UUID), user_id (FK), article_id (FK), created_at. Relationships: user, article
+backend/app/models/notification.py — Notification model: id (UUID), title, body, article_id (FK nullable), sent_at, created_at
+backend/app/models/device_token.py — DeviceToken model: id (UUID), user_id (FK), fcm_token (unique), platform (ios/android), created_at, updated_at. Relationship: user
+backend/app/schemas/user.py — UserBase, UserCreate, UserUpdate, UserResponse, TokenResponse, RefreshTokenRequest schemas using Pydantic v2 with model_config from_attributes=True
+backend/app/schemas/article.py — ArticleBase, ArticleCreate, ArticleUpdate, ArticleResponse, PaginatedArticleResponse schemas
+backend/app/schemas/category.py — CategoryBase, CategoryCreate, CategoryUpdate, CategoryResponse schemas
+backend/app/schemas/bookmark.py — BookmarkBase, BookmarkCreate, BookmarkResponse schemas
+backend/app/schemas/notification.py — NotificationBase, NotificationCreate, NotificationResponse, SendNotificationRequest schemas
+backend/app/api/v1/router.py — central APIRouter that includes auth, articles, categories, bookmarks, users, admin, websocket routers with correct prefixes and tags
+backend/app/api/v1/endpoints/auth.py — register new user with hashed password, login returning access and refresh tokens, logout invalidating token via Redis blacklist, refresh token endpoint
+backend/app/api/v1/endpoints/articles.py — paginated article list with page and limit query params, single article by id incrementing view_count, trending articles ordered by view_count, articles filtered by category slug, full text search by title and description
+backend/app/api/v1/endpoints/categories.py — GET all categories public, POST create category admin only, PUT update category admin only, DELETE category admin only
+backend/app/api/v1/endpoints/bookmarks.py — GET current user bookmarks authenticated, POST add bookmark authenticated, DELETE remove bookmark authenticated
+backend/app/api/v1/endpoints/users.py — GET current user profile authenticated, PUT update profile authenticated, POST register FCM device token authenticated
+backend/app/api/v1/endpoints/admin.py — all admin routes protected by get_current_admin: list all users with pagination, update user, delete user, list all articles with pagination, create article, update article, delete article, GET analytics summary from analytics service, POST send push notification to all users via FCM
+backend/app/api/v1/endpoints/websocket.py — WebSocket endpoint at /ws/news-feed, authenticate via token query param, use ConnectionManager to manage connections, broadcast new articles on connect
+backend/app/websocket/connection_manager.py — ConnectionManager class with active_connections list, async connect method, disconnect method, async broadcast method sending JSON message to all active connections, async send_personal_message method
+backend/app/services/news_fetcher.py — async fetch_and_save_articles function: call Currents API latest news endpoint with API key, parse response articles, for each article check if it already exists in DB by source_url to avoid duplicates, save new articles to DB with correct category mapping, after saving call connection_manager.broadcast to push new articles to WebSocket clients, call push_notification service to notify all device tokens
+backend/app/services/push_notification.py — initialize Firebase Admin SDK from FIREBASE_CREDENTIALS_PATH, async send_to_device function sending FCM notification to single token, async send_to_all function fetching all active device tokens from DB and sending notification to each, handle FCM errors gracefully
+backend/app/services/analytics.py — async get_analytics function returning dict with: total_users, total_articles, articles_per_category (list), most_bookmarked_articles (top 5), new_users_this_week, total_notifications_sent, total_bookmarks
+backend/Dockerfile — Python 3.11 slim base image, set WORKDIR to /app, copy requirements.txt and install dependencies, copy app source, expose port 8000, CMD uvicorn app.main:app --host 0.0.0.0 --port 8000
+docker-compose.yml at dailynewshub/ root — services: backend (build from ./backend, ports 8000:8000, env_file ./backend/.env, depends_on postgres and redis), postgres (image postgres:15, env POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, volume for persistence), redis (image redis:7-alpine, port 6379). All services on same network called dailynewshub-network
+backend/requirements.txt — pinned versions: fastapi==0.111.0, uvicorn==0.29.0, sqlalchemy==2.0.30, asyncpg==0.29.0, alembic==1.13.1, pydantic-settings==2.2.1, python-jose==3.3.0, passlib==1.7.4, bcrypt==4.1.3, apscheduler==3.10.4, firebase-admin==6.5.0, redis==5.0.4, celery==5.4.0, httpx==0.27.0, python-multipart==0.0.9, email-validator==2.1.1
+backend/.env.example — all keys with placeholder values: APP_NAME=Daily News Hub, DEBUG=True, DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/dailynewshub, SECRET_KEY=your-secret-key-here, ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=30, REFRESH_TOKEN_EXPIRE_DAYS=7, CURRENTS_API_KEY=your-currents-api-key, CURRENTS_API_URL=https://api.currentsapi.services/v1, FIREBASE_CREDENTIALS_PATH=firebase-credentials.json, REDIS_URL=redis://localhost:6379/0, CELERY_BROKER_URL=redis://localhost:6379/1, CELERY_RESULT_BACKEND=redis://localhost:6379/2
+backend/alembic.ini — configured with script_location = alembic, sqlalchemy.url reads from .env
+backend/alembic/env.py — configured to use async SQLAlchemy engine, import all models so Alembic detects them for autogenerate, load DATABASE_URL from config
+backend/.gitignore — ignore: pycache, *.pyc, .env, .egg-info, dist/, build/, .venv/, venv/, alembic/versions/.py (keep init.py), firebase-credentials.json, *.log
+backend/README.md — project title, description, tech stack list, setup instructions: clone repo, create venv, install requirements, copy .env.example to .env, fill in values, run alembic upgrade head, run uvicorn app.main:app --reload. Docker instructions: docker-compose up --build
+
+Global code conventions to follow across every file:
+
+Use async/await throughout — no synchronous database calls
+All database operations use SQLAlchemy async session
+Pydantic v2 with model_config = ConfigDict(from_attributes=True) on all response schemas
+All endpoints return consistent JSON structure: {'success': True/False, 'message': 'string', 'data': payload}
+Admin routes always protected by get_current_admin dependency
+Authenticated user routes always protected by get_current_user dependency
+Public routes have no auth dependency
+Use HTTPException with correct HTTP status codes: 400 bad request, 401 unauthorized, 403 forbidden, 404 not found, 409 conflict, 500 server error
+Type hint every function parameter and return type
+Add docstrings to every function and class
+UUIDs for all primary keys using Python uuid4
+created_at and updated_at on all models using server_default and onupdate
+
+Generate every single file completely — no placeholders, no TODOs, no truncated code. Every file must be fully working production-ready code."

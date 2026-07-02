@@ -38,12 +38,13 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
-        titleLarge: GoogleFonts.spaceGrotesk(
-          color: const Color(0xFF111827),
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme)
+          .copyWith(
+            titleLarge: GoogleFonts.spaceGrotesk(
+              color: const Color(0xFF111827),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFFF3F4F6),
@@ -111,12 +112,13 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-        titleLarge: GoogleFonts.spaceGrotesk(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme)
+          .copyWith(
+            titleLarge: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFF1E293B),

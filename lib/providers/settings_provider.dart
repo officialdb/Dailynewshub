@@ -21,7 +21,9 @@ class SettingsProvider with ChangeNotifier {
     _pushNotifications = prefs.getBool('pushNotifications') ?? true;
     _darkMode = prefs.getBool('darkMode') ?? false;
     _language = prefs.getString('language') ?? 'English';
-    _newsPreferences = prefs.getStringList('newsPreferences') ?? ['Technology', 'Business', 'Economy'];
+    _newsPreferences =
+        prefs.getStringList('newsPreferences') ??
+        ['Technology', 'Business', 'Economy'];
     notifyListeners();
   }
 

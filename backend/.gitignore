@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+.egg-info/
+dist/
+build/
+.venv/
+venv/
+firebase-credentials.json
+*.log
+uploads/
+alembic/versions/*.py
+!alembic/versions/__init__.py
