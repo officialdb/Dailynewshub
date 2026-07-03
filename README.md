@@ -111,4 +111,17 @@ You should see output like: `your url is: https://dailynewshub2026.loca.lt`.
 ### Step 3: Install the APKs
 Distribute the APK files to the devices. After installation, the mobile app will connect to the backend through the `dailynewshub2026` tunnel.
 
-Keep both terminals open while the demo is running.*Developed with ❤️ by Group 3.*
+Keep both terminals open while the demo is running.
+
+## 👥 GROUP 3 MEMBERS
+
+1. Chilaka Chigozie Micheal
+2. Don Praise Chinonso
+3. Okeh Norah Odinakachi
+4. Blessing Isaac
+5. Oguh Caleb Kelechi
+6. Maduakolam Victor
+7. ETOH COLLINS CHIMEZIE
+8. Kamsi Roosevelt John
+
+*Developed with ❤️ by Group 3.*
