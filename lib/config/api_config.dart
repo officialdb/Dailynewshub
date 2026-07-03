@@ -18,7 +18,7 @@ class ApiConfig {
       case TargetPlatform.android:
       case TargetPlatform.iOS:
         // Default mobile base: deployed backend (use --dart-define to override)
-        return 'http://51.20.83.156:8000/api/v1';
+        return 'http://13.61.183.201/api/v1';
       case TargetPlatform.macOS:
         return 'http://localhost:8001/api/v1';
       default:
