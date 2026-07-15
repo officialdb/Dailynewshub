@@ -9,4 +9,4 @@ async def create_tables() -> None:
     """Create all database tables defined by the ORM models."""
 
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
