@@ -12,7 +12,12 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     """Pydantic settings for the Daily News Hub backend."""
 
-    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE if ENV_FILE.exists() else None,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     APP_NAME: str = "Daily News Hub"
     DEBUG: bool = True

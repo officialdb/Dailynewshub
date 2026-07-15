@@ -70,3 +70,6 @@ firebase-credentials.json
 *.crt
 *.p12
 *.pfx
+
+
+/designs/
