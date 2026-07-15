@@ -58,3 +58,15 @@ class RefreshTokenRequest(BaseModel):
 
     refresh_token: str
 
+# --- NEW ADDITION ---
+
+class UserPreferencesUpdate(BaseModel):
+    """Payload for updating user category preferences."""
+    preferences: list[str]
+
+
+class ReadingHistoryResponse(BaseModel):
+    """Serialized reading history response."""
+    article_ids: list[UUID]
+
+

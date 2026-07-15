@@ -18,3 +18,12 @@ alembic/versions/*.py
 *.env
 !.env.example
 !.env.docker.example
+*.log
+
+# Dev scratch scripts (not for production)
+test_youtube.py
+bandit_report.json
+fix_reels.py
+seed_news.py
+seed_reels.py
+count_reels.py

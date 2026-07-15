@@ -1,6 +1,5 @@
 """Admin-only management routes."""
 
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from uuid import UUID
@@ -240,3 +239,87 @@ async def send_notification(
         "message": "Notification dispatched successfully",
         "data": {"notification_id": str(notification.id), "sent_count": sent_count},
     }
+
+# --- NEW ADDITION ---
+
+from app.schemas.notification import ScheduleNotificationRequest
+from app.models.reel import Reel
+from app.schemas.reel import ReelResponse
+
+@router.put("/articles/{id}/pin")
+async def pin_article(
+    id: UUID,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Toggle article is_pinned state."""
+    article = await db.get(Article, id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        
+    article.is_pinned = not article.is_pinned
+    await db.commit()
+    await db.refresh(article)
+    
+    return {"success": True, "message": "Article pin toggled", "data": ArticleResponse.model_validate(article).model_dump(mode="json")}
+
+
+@router.get("/reels")
+async def admin_list_reels(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """List reels with pagination for admin."""
+    total = int(await db.scalar(select(func.count(Reel.id))) or 0)
+    result = await db.execute(select(Reel).order_by(Reel.created_at.desc()).offset((page - 1) * limit).limit(limit))
+    reels = [ReelResponse.model_validate(r).model_dump(mode="json") for r in result.scalars().all()]
+    return {"success": True, "message": "Reels retrieved successfully", "data": _paginate(reels, total, page, limit)}
+
+
+@router.delete("/reels/{id}")
+async def delete_reel(
+    id: UUID,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Delete a reel."""
+    reel = await db.get(Reel, id)
+    if not reel:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reel not found")
+        
+    await db.delete(reel)
+    await db.commit()
+    return {"success": True, "message": "Reel deleted", "data": {"id": str(id)}}
+
+
+@router.post("/notifications/schedule", status_code=status.HTTP_201_CREATED)
+async def schedule_notification(
+    payload: ScheduleNotificationRequest,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Schedule a notification for a future time."""
+    if payload.article_id:
+        article = await db.get(Article, payload.article_id)
+        if not article:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+            
+    notification = Notification(
+        title=payload.title,
+        body=payload.body,
+        article_id=payload.article_id,
+        scheduled_at=payload.scheduled_at,
+        is_sent=False,
+    )
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+    
+    return {
+        "success": True, 
+        "message": "Notification scheduled successfully", 
+        "data": {"notification_id": str(notification.id), "scheduled_at": notification.scheduled_at.isoformat()}
+    }
+

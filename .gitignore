@@ -54,6 +54,7 @@ android/key.properties
 
 
 DEPLOYMENT.md
+CODEBASE_OVERVIEW.txt
 
 # Environment files (do not commit secrets)
 .env
@@ -70,6 +71,7 @@ firebase-credentials.json
 *.crt
 *.p12
 *.pfx
-
-
 /designs/
+
+# Dev patch scripts
+patch_*.py

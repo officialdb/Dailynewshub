@@ -11,6 +11,24 @@ import redis.asyncio as redis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# Route uvicorn logs to the same file without duplicating
+file_handler = logging.FileHandler("app.log")
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi"):
+    logger = logging.getLogger(logger_name)
+    logger.addHandler(file_handler)
+    logger.propagate = False
 
 from app.api.v1.router import router as api_router
 from app.core.config import get_settings
@@ -48,12 +66,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Daily News Hub API", version="1.0.0", lifespan=lifespan)
 app.mount("/media", StaticFiles(directory=uploads_root), name="media")
 
-# NOTE: `allow_origins=["*"]` is intentionally permissive here for development
-# and mobile testing. When deploying to production or serving a web frontend,
-# restrict `allow_origins` to the specific origins (e.g., https://your-domain.com).
+# CORS origins are loaded from the ALLOWED_ORIGINS env var (comma-separated).
+# Set to "*" for development / mobile testing; restrict to specific domains in production.
+_allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

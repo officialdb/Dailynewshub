@@ -1,117 +1,194 @@
-# Daily Newshub 📰
+# Daily News Hub 📰
 
 **Project submitted by Group 3**
 
-Daily Newshub is a modern, fully functional news reading application built with Flutter. It features a striking Dark Neo-Brutalist design aesthetic, offering users a premium and highly engaging way to consume their daily news. 
+Daily News Hub is a modern, full-stack news reading application built with Flutter and FastAPI. It features a Dark Neo-Brutalist design aesthetic, real-time article feeds, short-form video reels, channel subscriptions, bookmarking, AI-powered summaries, and much more.
+
+---
 
 ## ✨ Key Features
-- **Auto-Scrolling Trending Feed**: A smooth, timer-driven carousel that cycles through the top 5 newest and most trending articles.
-- **Dynamic Categories**: Instantly filter articles across various topics like Technology, Sports, Health, Economy, and Entertainment.
-- **Robust Search System**: Live-search functionality allowing users to find specific articles by title or category instantly.
-- **Bookmarking (Save for Later)**: Users can save their favorite articles. Saved articles are securely stored in a dedicated tab and can be unsaved at any time.
-- **Smooth Navigation**: Custom Cupertino sliding page transitions and an elegant Hamburger drawer menu that seamlessly connects all sections of the app without any jarring flashes or lags.
-- **Customizable Settings**: Interactive neo-brutalist toggles for preferences like Dark Mode and Push Notifications.
+
+- **Auto-Scrolling Trending Feed** — A smooth, timer-driven carousel cycling through the top newest and most trending articles.
+- **Dynamic Categories** — Instantly filter articles across topics like Technology, Sports, Health, Economy, and Entertainment.
+- **Short-Form Reels** — TikTok-style vertical video feed sourced from YouTube news channels.
+- **Channel Subscriptions** — Follow your favourite news channels and get personalised feeds.
+- **Robust Search** — Live-search by title, keyword, or category.
+- **Bookmarking** — Save articles and reels; access them anytime in a dedicated tab.
+- **Reading History** — Automatically tracks articles you've read.
+- **AI Summaries & Text-to-Speech** — AI-generated article summaries with audio playback.
+- **Reactions & Comments** — React and comment on articles and reels.
+- **Customizable Settings** — Dark mode, push notification, and preference toggles.
+- **JWT Authentication** — Secure register/login with access and refresh token rotation.
+
+---
 
 ## 🛠 Tech Stack
-- **Framework**: Flutter / Dart
-- **State Management**: `provider` (MultiProvider architecture for News & Settings states)
-- **Typography**: `google_fonts` (Space Grotesk for headers, Inter for body text)
 
-## 🚀 Getting Started
+| Layer | Technology |
+|---|---|
+| **Mobile** | Flutter / Dart |
+| **State Management** | Riverpod (AsyncNotifier) |
+| **HTTP Client** | Dio |
+| **Backend** | FastAPI (Python 3.11) |
+| **Database** | PostgreSQL 16 (via SQLAlchemy + asyncpg) |
+| **Cache / Queue** | Redis 7 |
+| **Async Tasks** | Celery + APScheduler |
+| **Migrations** | Alembic |
+| **Push Notifications** | Firebase Admin SDK |
+| **Typography** | Google Fonts (Space Grotesk, Inter) |
 
-1. Ensure you have the Flutter SDK installed.
-2. Clone this repository.
-3. Fetch the dependencies:
+---
+
+## 🚀 Running the Project
+
+### Prerequisites
+
+- [Flutter SDK](https://flutter.dev/docs/get-started/install) installed and on your PATH
+- Python 3.11+ with `pip`
+- PostgreSQL 16 running locally **or** Docker Desktop installed
+- Redis running locally **or** via Docker
+
+---
+
+### 1. Clone & Install Flutter Dependencies
+
+```bash
+git clone <repository-url>
+cd Dailynewshub
+flutter pub get
+```
+
+---
+
+### 2. Start the Backend
+
+Open a terminal at the root of the project (`Dailynewshub/`) and run the following command to automatically start all backend services (PostgreSQL, Redis, Uvicorn, Celery) via Docker and connect the ADB tunnel:
+
+```bash
+make start
+```
+
+That's it! 
+
+> **Note:** If you want to stop the backend cleanly, just run `make backend-stop`.
+> Logs for the backend are automatically saved to `backend/app.log`.
+
+---
+
+### 3. Configure the Flutter App to Talk to the Backend
+
+The backend URL is configured in [`lib/config/api_config.dart`](lib/config/api_config.dart).
+
+By default it points to `http://10.11.52.123:8000/api/v1`. **Change this to your machine's local IP address** before running on a physical device:
+
+```bash
+# Find your machine's local IP
+hostname -I | awk '{print $1}'
+```
+
+Then update the value in `lib/config/api_config.dart`:
+```dart
+return 'http://<YOUR_LOCAL_IP>:8000/api/v1';
+```
+
+Or override it at build/run time without touching the file:
+```bash
+flutter run --dart-define=API_BASE_URL=http://<YOUR_LOCAL_IP>:8000/api/v1
+```
+
+---
+
+### 4. 📱 Run on a Physical Android Device
+
+1. **Enable Developer Options** on your phone: go to *Settings → About Phone* and tap **Build Number** 7 times.
+2. Enable **USB Debugging** inside Developer Options.
+3. Connect the device via USB cable and accept the prompt on your phone.
+4. Verify the device is recognised:
    ```bash
-   flutter pub get
+   flutter devices
    ```
-4. Run the app on your preferred emulator or physical device:
+   You should see your phone listed (e.g. `SM A055F`).
+
+5. **(Easiest option)** Use `adb reverse` so the phone reaches the backend through the USB cable — no Wi-Fi required:
    ```bash
+   # adb is located at ~/Android/Sdk/platform-tools/adb on this machine
+   ~/Android/Sdk/platform-tools/adb reverse tcp:8000 tcp:8000
+   ```
+   > **Tip:** Add `~/Android/Sdk/platform-tools` to your `PATH` so you can just type `adb`:
+   > ```bash
+   > echo 'export PATH="$HOME/Android/Sdk/platform-tools:$PATH"' >> ~/.bashrc && source ~/.bashrc
+   > ```
+
+   When using `adb reverse`, update the base URL in `lib/config/api_config.dart` to:
+   ```
+   http://localhost:8000/api/v1
+   ```
+   Alternatively, keep the LAN IP (`10.11.52.123`) so it works over Wi-Fi without needing `adb reverse`.
+
+6. Run the app on your device:
+   ```bash
+   # Run on the SM A055F (device ID: R92X819WPPW)
+   flutter run -d R92X819WPPW
+
+   # Or let Flutter auto-detect the only connected device
    flutter run
    ```
 
-## � Build Release APKs
+---
 
-Use these commands to build release APKs for both modern and older Android devices.
+### 5. 📦 Build a Release APK
 
-### High-end Android (arm64-v8a)
+Build an APK to share or install without a USB cable.
+
 ```bash
+# ARM64 (modern phones)
 flutter build apk --release --target-platform=android-arm64
-```
-The release APK will be generated at:
-```bash
-build/app/outputs/flutter-apk/app-release.apk
-```
 
-### Lower-end Android (armeabi-v7a)
-```bash
+# ARM (older phones)
 flutter build apk --release --target-platform=android-arm
-```
-The release APK will be generated at:
-```bash
-build/app/outputs/flutter-apk/app-release.apk
-```
 
-### Build both APKs in one command
-```bash
+# Universal (both architectures)
 flutter build apk --release --target-platform=android-arm,android-arm64
 ```
-This creates a single universal APK compatible with older and newer devices.
 
-### Install the generated APK
+The generated APK is at:
+```
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+Install it directly onto the connected device:
 ```bash
 flutter install
-```
-Or install the APK directly with `adb`:
-```bash
+# or
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-## �🚀 Presentation Startup Guide (Backend & App)
+---
 
-I need everyone to follow these steps exactly so the demo works with the hardcoded APKs.
+## 🎤 Presentation / Demo Guide
 
-### Step 1: Start the Backend
-Open a terminal and run the backend from the `backend` folder. Activate the virtual environment first, then start FastAPI:
+Follow these steps exactly to run a live demo from a pre-built APK.
+
+### Step 1 — Start the Backend
 ```bash
 cd backend
 source .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-If port 8000 is already taken, use a free port instead:
-```bash
-cd backend
-source .venv/bin/activate
-FREE_PORT=$(python - <<'PY'
-import socket
-s = socket.socket()
-s.bind(('', 0))
-print(s.getsockname()[1])
-s.close()
-PY
-)
-uvicorn app.main:app --host 0.0.0.0 --port "$FREE_PORT"
-```
-Verify the backend is running by checking the health endpoint:
-```bash
-curl http://127.0.0.1:8000/api/v1/health
-```
-If you used a different port, substitute that port number for `8000` in the command.
 
-### Step 2: Start the Internet Tunnel
-The APKs are fixed to `https://dailynewshub2026.loca.lt`, so open a second terminal and expose the backend using Localtunnel:
+### Step 2 — Expose via Localtunnel (for pre-built APKs)
+The pre-built APKs are hardcoded to `https://dailynewshub2026.loca.lt`. Open a **second terminal** and run:
 ```bash
 npx localtunnel --port 8000 --subdomain dailynewshub2026
 ```
-If the backend is running on another port, replace `8000` with that port.
+You should see: `your url is: https://dailynewshub2026.loca.lt`
 
-You should see output like: `your url is: https://dailynewshub2026.loca.lt`.
-*(If a password prompt appears in the browser, it is just Localtunnel security. The app will still work.)*
+### Step 3 — Install the APK on Devices
+Distribute the APK to the demo devices. The app will automatically connect to the backend via the tunnel.
 
-### Step 3: Install the APKs
-Distribute the APK files to the devices. After installation, the mobile app will connect to the backend through the `dailynewshub2026` tunnel.
+> Keep **both** terminals open for the duration of the demo.
 
-Keep both terminals open while the demo is running.
+---
 
 ## 👥 GROUP 3 MEMBERS
 

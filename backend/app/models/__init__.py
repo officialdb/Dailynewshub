@@ -7,6 +7,13 @@ from app.models.comment import Comment
 from app.models.device_token import DeviceToken
 from app.models.notification import Notification
 from app.models.user import User
+from app.models.article_comment import ArticleComment
+from app.models.article_reaction import ArticleReaction
+from app.models.followed_channel import FollowedChannel
+from app.models.reel import Reel
+from app.models.reel_comment import ReelComment
+from app.models.reel_like import ReelLike
+from app.models.reel_comment_like import ReelCommentLike
 
 __all__ = [
     "Article",
@@ -16,4 +23,11 @@ __all__ = [
     "DeviceToken",
     "Notification",
     "User",
+    "ArticleComment",
+    "ArticleReaction",
+    "FollowedChannel",
+    "Reel",
+    "ReelComment",
+    "ReelLike",
+    "ReelCommentLike",
 ]

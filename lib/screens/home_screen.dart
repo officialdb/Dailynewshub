@@ -93,30 +93,35 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: _buildAppBar(context),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 96),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildGreeting(context, authProvider),
-            const SizedBox(height: 24),
-            _buildTrendingSection(
-              context,
-              trendingArticles,
-              newsProvider.isLoading,
-            ),
-            const SizedBox(height: 24),
-            _buildCategories(context, allCategories),
-            const SizedBox(height: 16),
-            _buildArticleList(
-              context,
-              displayArticles,
-              newsProvider.isLoading,
-              newsProvider.hasMoreArticles,
-              newsProvider.isLoadingMoreArticles,
-              newsProvider.loadMoreArticles,
-            ),
-          ],
+      body: RefreshIndicator(
+        onRefresh: () => newsProvider.refreshContent(),
+        color: Theme.of(context).colorScheme.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 96),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildGreeting(context, authProvider),
+              const SizedBox(height: 24),
+              _buildTrendingSection(
+                context,
+                trendingArticles,
+                newsProvider.isLoading,
+              ),
+              const SizedBox(height: 24),
+              _buildCategories(context, allCategories),
+              const SizedBox(height: 16),
+              _buildArticleList(
+                context,
+                displayArticles,
+                newsProvider.isLoading,
+                newsProvider.hasMoreArticles,
+                newsProvider.isLoadingMoreArticles,
+                newsProvider.loadMoreArticles,
+              ),
+            ],
+          ),
         ),
       ),
     );
