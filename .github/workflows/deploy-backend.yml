@@ -61,13 +61,21 @@ jobs:
           echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          mkdir -p ~/dailynewshub/backend
+
+          # 1. Create remote deployment directory on EC2
+          ssh -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST "mkdir -p ~/dailynewshub/backend"
+
+          # 2. Copy docker-compose.yml to EC2
           scp -i ~/.ssh/deploy_key backend/docker-compose.yml $EC2_USER@$EC2_HOST:~/dailynewshub/backend/docker-compose.yml
-          
-          ssh -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << 'EOF'
+
+          # 3. Obtain ECR auth token on runner (avoids requiring AWS CLI on EC2)
+          ECR_TOKEN=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+
+          # 4. Log in to ECR on EC2, pull latest image, and restart service
+          ssh -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << EOF
+            echo "$ECR_TOKEN" | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
             cd ~/dailynewshub/backend
-            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
             docker pull ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            docker compose down || true
-            docker compose up -d
+            (docker compose down || docker-compose down || true)
+            (docker compose up -d || docker-compose up -d)
           EOF
