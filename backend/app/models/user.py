@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, String, func, text
+from sqlalchemy import Boolean, DateTime, String, JSON, func, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from app.models.bookmark import Bookmark
     from app.models.device_token import DeviceToken
     from app.models.comment import Comment
+    
+    # --- NEW ADDITION ---
+    from app.models.followed_channel import FollowedChannel
 
 
 class User(Base):
@@ -49,6 +52,17 @@ class User(Base):
         lazy="selectin",
     )
     comments: Mapped[list[Comment]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    # --- NEW ADDITION ---
+    preferences: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    reading_history: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    
+    followed_channels: Mapped[list[FollowedChannel]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",

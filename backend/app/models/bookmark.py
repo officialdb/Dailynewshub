@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from app.models.article import Article
     from app.models.user import User
 
+    # --- NEW ADDITION ---
+    from app.models.reel import Reel
+
 
 class Bookmark(Base):
     """Bookmark connecting a user to an article."""
@@ -34,4 +37,12 @@ class Bookmark(Base):
 
     user: Mapped[User] = relationship(back_populates="bookmarks", lazy="selectin")
     article: Mapped[Article] = relationship(back_populates="bookmarks", lazy="selectin")
+
+    # --- NEW ADDITION ---
+    reel_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("reels.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    reel: Mapped[Reel | None] = relationship(lazy="selectin")
 

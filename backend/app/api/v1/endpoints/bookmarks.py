@@ -1,19 +1,21 @@
 """Bookmark management routes."""
 
-from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.article import Article
 from app.models.bookmark import Bookmark
 from app.models.user import User
+from app.models.reel import Reel
 from app.schemas.article import ArticleResponse
 from app.schemas.bookmark import BookmarkResponse
+from app.schemas.reel import ReelResponse
 
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
@@ -101,8 +103,86 @@ async def remove_bookmark(
 
     await db.delete(bookmark)
     await db.commit()
+    return {"success": True, "message": "Bookmark removed successfully", "data": {"article_id": str(article_id)}}
+
+
+@router.get("/reels")
+async def list_reel_bookmarks(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Return paginated list of bookmarked reels for the current user."""
+    total = int(
+        await db.scalar(
+            select(func.count(Bookmark.id)).where(Bookmark.user_id == current_user.id, Bookmark.reel_id.isnot(None))
+        )
+        or 0
+    )
+    result = await db.execute(
+        select(Bookmark)
+        .options(selectinload(Bookmark.reel))
+        .where(Bookmark.user_id == current_user.id, Bookmark.reel_id.isnot(None))
+        .order_by(Bookmark.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    bookmarks = result.scalars().all()
+    
+    items = []
+    for b in bookmarks:
+        if b.reel:
+            r_dict = ReelResponse.model_validate(b.reel).model_dump(mode="json")
+            r_dict["is_bookmarked"] = True
+            items.append(r_dict)
+            
+    pages = (total + limit - 1) // limit if total else 0
     return {
         "success": True,
-        "message": "Bookmark removed successfully",
-        "data": BookmarkResponse.model_validate(bookmark).model_dump(mode="json"),
+        "message": "Reel bookmarks retrieved successfully",
+        "data": {"items": items, "total": total, "page": page, "limit": limit, "pages": pages},
     }
+
+
+@router.post("/reels/{reel_id}", status_code=status.HTTP_201_CREATED)
+async def add_reel_bookmark(
+    reel_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Bookmark a reel."""
+    reel = await db.get(Reel, reel_id)
+    if not reel:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reel not found")
+
+    existing = await db.scalar(
+        select(Bookmark).where(Bookmark.user_id == current_user.id, Bookmark.reel_id == reel_id)
+    )
+    if existing:
+        return {"success": True, "message": "Reel already bookmarked", "data": {"reel_id": str(reel_id)}}
+
+    bookmark = Bookmark(user_id=current_user.id, reel_id=reel_id)
+    db.add(bookmark)
+    await db.commit()
+
+    return {"success": True, "message": "Reel bookmarked successfully", "data": {"reel_id": str(reel_id)}}
+
+
+@router.delete("/reels/{reel_id}")
+async def remove_reel_bookmark(
+    reel_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Remove a reel bookmark."""
+    bookmark = await db.scalar(
+        select(Bookmark).where(Bookmark.user_id == current_user.id, Bookmark.reel_id == reel_id)
+    )
+    if not bookmark:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bookmark not found")
+
+    await db.delete(bookmark)
+    await db.commit()
+
+    return {"success": True, "message": "Reel bookmark removed successfully", "data": {"reel_id": str(reel_id)}}

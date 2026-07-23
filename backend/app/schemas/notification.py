@@ -33,3 +33,10 @@ class NotificationResponse(NotificationBase):
 
 class SendNotificationRequest(NotificationBase):
     """Payload used by admin notification broadcast routes."""
+
+# --- NEW ADDITION ---
+
+class ScheduleNotificationRequest(NotificationBase):
+    """Payload for scheduling a notification for the future."""
+    scheduled_at: datetime
+

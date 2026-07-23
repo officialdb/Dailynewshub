@@ -11,7 +11,8 @@ from pydantic import BaseModel, ConfigDict
 class BookmarkBase(BaseModel):
     """Shared bookmark fields."""
 
-    article_id: UUID
+    article_id: UUID | None = None
+    reel_id: UUID | None = None
 
 
 class BookmarkCreate(BookmarkBase):

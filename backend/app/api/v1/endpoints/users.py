@@ -1,10 +1,9 @@
 """User profile routes."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
@@ -193,3 +192,70 @@ async def list_notifications(
         "message": "Notifications retrieved successfully",
         "data": items,
     }
+
+# --- NEW ADDITION ---
+
+from app.schemas.user import UserPreferencesUpdate, ReadingHistoryResponse
+
+@router.get("/me/preferences")
+async def get_preferences(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    """Get current user preferences."""
+    return {
+        "success": True,
+        "message": "Preferences retrieved successfully",
+        "data": {"preferences": current_user.preferences or []},
+    }
+
+@router.put("/me/preferences")
+async def update_preferences(
+    payload: UserPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Update current user preferences."""
+    current_user.preferences = payload.preferences
+    current_user.onboarding_completed = True
+    await db.commit()
+    await db.refresh(current_user)
+    return {
+        "success": True,
+        "message": "Preferences updated successfully",
+        "data": {"preferences": current_user.preferences},
+    }
+
+@router.get("/me/reading-history")
+async def get_reading_history(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    """Get current user reading history."""
+    history = [UUID(str_id) for str_id in (current_user.reading_history or [])]
+    return {
+        "success": True,
+        "message": "Reading history retrieved successfully",
+        "data": ReadingHistoryResponse(article_ids=history).model_dump(mode="json"),
+    }
+
+@router.post("/me/reading-history/{article_id}", status_code=status.HTTP_201_CREATED)
+async def add_reading_history(
+    article_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Add an article to reading history."""
+    article_id_str = str(article_id)
+    history = current_user.reading_history or []
+    if article_id_str in history:
+        history.remove(article_id_str)
+    history.insert(0, article_id_str)
+    # Keep only last 100
+    current_user.reading_history = history[:100]
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": "Reading history updated",
+        "data": {"article_id": article_id_str},
+    }
+

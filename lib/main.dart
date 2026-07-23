@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Consumer;
 import 'screens/splash_screen.dart';
 import 'providers/settings_provider.dart';
 import 'providers/auth_provider.dart';
@@ -9,7 +10,8 @@ import 'theme/app_theme.dart';
 
 void main() {
   runApp(
-    MultiProvider(
+    ProviderScope(
+      child: MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
@@ -31,6 +33,7 @@ void main() {
         ),
       ],
       child: const DailyNewsHubApp(),
+    ),
     ),
   );
 }

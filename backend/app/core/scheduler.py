@@ -6,6 +6,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.tasks.news import queue_fetch_and_save_articles
 
+# --- NEW ADDITION ---
+from app.services.youtube_fetcher import fetch_and_save_reels
+
 
 scheduler = AsyncIOScheduler(timezone="UTC")
 
@@ -19,6 +22,18 @@ def setup_scheduler() -> None:
             trigger="interval",
             minutes=30,
             id="fetch_news_articles",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+
+    # --- NEW ADDITION ---
+    if not scheduler.get_job("fetch_reels"):
+        scheduler.add_job(
+            fetch_and_save_reels,
+            trigger="interval",
+            minutes=30,
+            id="fetch_reels",
             replace_existing=True,
             max_instances=1,
             coalesce=True,

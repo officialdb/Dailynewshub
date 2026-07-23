@@ -17,6 +17,10 @@ if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.comment import Comment
 
+    # --- NEW ADDITION ---
+    from app.models.article_reaction import ArticleReaction
+    from app.models.article_comment import ArticleComment
+
 
 class Article(Base):
     """Published news article."""
@@ -55,6 +59,22 @@ class Article(Base):
         lazy="selectin",
     )
     comments: Mapped[list[Comment]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    # --- NEW ADDITION ---
+    is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    audio_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    reactions: Mapped[list[ArticleReaction]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    article_comments: Mapped[list[ArticleComment]] = relationship(
         back_populates="article",
         cascade="all, delete-orphan",
         lazy="selectin",

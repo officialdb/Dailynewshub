@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user.dart';
@@ -11,6 +12,12 @@ class AuthProvider with ChangeNotifier {
   static const String _legacyCurrentUserKey = 'currentUser';
   static const String _legacyCurrentUserIdKey = 'currentUserId';
   static const String _legacyUsersKey = 'users';
+
+  // Secure encrypted storage for JWT tokens.
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
 
   final AuthApiService _apiService = AuthApiService();
 
@@ -43,9 +50,8 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _restoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString(_accessTokenKey);
-    final refreshToken = prefs.getString(_refreshTokenKey);
+    final accessToken = await _secureStorage.read(key: _accessTokenKey);
+    final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
 
     if (accessToken != null && accessToken.isNotEmpty) {
       try {
@@ -98,9 +104,8 @@ class AuthProvider with ChangeNotifier {
     required String accessToken,
     required String refreshToken,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
+    await _secureStorage.write(key: _accessTokenKey, value: accessToken);
+    await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
     _currentUser = user.copyWith(
       accessToken: accessToken,
       refreshToken: refreshToken,
@@ -108,9 +113,10 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _clearSession() async {
+    await _secureStorage.delete(key: _accessTokenKey);
+    await _secureStorage.delete(key: _refreshTokenKey);
+    // Clean up old plain-text SharedPreferences keys if they exist.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
     await prefs.remove(_legacyCurrentUserKey);
     await prefs.remove(_legacyCurrentUserIdKey);
     await prefs.remove(_legacyUsersKey);

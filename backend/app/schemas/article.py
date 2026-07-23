@@ -55,6 +55,11 @@ class ArticleResponse(ArticleBase):
     created_at: datetime
     updated_at: datetime
 
+    # --- NEW ADDITION ---
+    is_pinned: bool = False
+    ai_summary: str | None = None
+    audio_url: str | None = None
+
 
 class PaginatedArticleResponse(BaseModel):
     """Paginated article response envelope."""
@@ -64,4 +69,21 @@ class PaginatedArticleResponse(BaseModel):
     page: int
     limit: int
     pages: int
+
+# --- NEW ADDITION ---
+
+class AISummaryResponse(BaseModel):
+    """Response for article AI summary."""
+    summary: list[str]
+
+
+class AudioResponse(BaseModel):
+    """Response for article audio URL."""
+    audio_url: str
+
+
+class ShareCardResponse(BaseModel):
+    """Response for article share card generation."""
+    share_card_url: str
+
 

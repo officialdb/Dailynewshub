@@ -1,6 +1,5 @@
 """Article browsing routes."""
 
-from __future__ import annotations
 
 from uuid import UUID
 
@@ -285,3 +284,98 @@ async def get_article(article_id: UUID, db: AsyncSession = Depends(get_db)) -> d
         "message": "Article retrieved successfully",
         "data": ArticleResponse.model_validate(article).model_dump(mode="json"),
     }
+
+# --- NEW ADDITION ---
+
+from app.schemas.article import AISummaryResponse, AudioResponse, ShareCardResponse
+from app.schemas.reaction import ReactionCreate, ReactionResponse
+from app.models.article_reaction import ArticleReaction
+from app.models.article_comment import ArticleComment
+from app.services.ai_summarizer import summarize_article
+from app.services.text_to_speech import generate_audio
+from app.services.share_card import generate_share_card
+
+
+@router.get("/{id}/summary", response_model=dict[str, object])
+async def get_article_summary(id: UUID, db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    """Get AI summary of an article."""
+    article = await db.get(Article, id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        
+    summary = await summarize_article(id, article.content or "", db)
+    return {"success": True, "message": "Summary generated", "data": AISummaryResponse(summary=summary).model_dump(mode="json")}
+
+
+@router.get("/{id}/audio", response_model=dict[str, object])
+async def get_article_audio(id: UUID, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    """Get audio URL for an article."""
+    article = await db.get(Article, id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        
+    base_url = str(request.base_url)
+    audio_url = await generate_audio(id, article.content or "", db, base_url)
+    if not audio_url:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate audio")
+        
+    return {"success": True, "message": "Audio generated", "data": AudioResponse(audio_url=audio_url).model_dump(mode="json")}
+
+
+@router.post("/{id}/reactions", status_code=status.HTTP_201_CREATED)
+async def add_reaction(
+    id: UUID,
+    payload: ReactionCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Add a reaction to an article."""
+    article = await db.get(Article, id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        
+    existing = await db.scalar(select(ArticleReaction).where(ArticleReaction.user_id == current_user.id, ArticleReaction.article_id == id))
+    if existing:
+        existing.reaction_type = payload.reaction_type
+        reaction = existing
+    else:
+        reaction = ArticleReaction(user_id=current_user.id, article_id=id, reaction_type=payload.reaction_type)
+        db.add(reaction)
+        
+    await db.commit()
+    await db.refresh(reaction)
+    
+    return {"success": True, "message": "Reaction saved", "data": ReactionResponse.model_validate(reaction).model_dump(mode="json")}
+
+
+@router.delete("/{id}/reactions")
+async def delete_reaction(
+    id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Remove a reaction from an article."""
+    existing = await db.scalar(select(ArticleReaction).where(ArticleReaction.user_id == current_user.id, ArticleReaction.article_id == id))
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reaction not found")
+        
+    await db.delete(existing)
+    await db.commit()
+    
+    return {"success": True, "message": "Reaction removed", "data": {"article_id": str(id)}}
+
+
+@router.post("/{id}/share-card")
+async def create_share_card(id: UUID, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    """Generate a shareable image card for an article."""
+    article = await db.get(Article, id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+        
+    base_url = str(request.base_url)
+    share_url = await generate_share_card(article.title, article.source_name, article.image_url, base_url)
+    if not share_url:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate share card")
+        
+    return {"success": True, "message": "Share card generated", "data": ShareCardResponse(share_card_url=share_url).model_dump(mode="json")}
+

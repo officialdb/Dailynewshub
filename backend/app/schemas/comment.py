@@ -30,3 +30,15 @@ class CommentResponse(CommentBase):
     user_avatar_url: str | None = None
     created_at: datetime
     updated_at: datetime
+
+# --- NEW ADDITION ---
+
+class PaginatedCommentResponse(BaseModel):
+    """Paginated comment response envelope."""
+
+    items: list[CommentResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int
+
