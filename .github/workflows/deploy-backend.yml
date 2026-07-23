@@ -51,33 +51,44 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      - name: Deploy to EC2
+      - name: Setup SSH Key
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
           echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # 1. Create remote deployment directory on EC2 and ensure .env.docker exists
-          ssh -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST "mkdir -p ~/dailynewshub/backend && touch ~/dailynewshub/backend/.env.docker"
+      - name: Sync deployment files to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST "mkdir -p ~/dailynewshub/backend && touch ~/dailynewshub/backend/.env.docker"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key backend/docker-compose.yml $EC2_USER@$EC2_HOST:~/dailynewshub/backend/docker-compose.yml
 
-          # 2. Copy docker-compose.yml to EC2
-          scp -i ~/.ssh/deploy_key backend/docker-compose.yml $EC2_USER@$EC2_HOST:~/dailynewshub/backend/docker-compose.yml
-
-          # 3. Obtain ECR auth token on runner (avoids requiring AWS CLI on EC2)
+      - name: Execute Remote Docker Deployment on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
           ECR_TOKEN=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
-
-          # 4. Log in to ECR on EC2, pull latest image, and restart service
-          ssh -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << EOF
-            echo "$ECR_TOKEN" | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << EOF
+            set -ex
             cd ~/dailynewshub/backend
             export ECR_REGISTRY="${{ env.ECR_REGISTRY }}"
             export IMAGE_NAME="${{ env.IMAGE_NAME }}"
-            docker pull ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            (docker compose down || docker-compose down || true)
-            (docker compose up -d || docker-compose up -d)
+
+            # Detect if docker requires sudo on EC2
+            DOCKER_BIN="docker"
+            if ! docker info >/dev/null 2>&1; then
+              DOCKER_BIN="sudo docker"
+            fi
+
+            echo "$ECR_TOKEN" | \$DOCKER_BIN login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+            \$DOCKER_BIN pull ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            (\$DOCKER_BIN compose down || \$DOCKER_BIN-compose down || true)
+            (\$DOCKER_BIN compose up -d || \$DOCKER_BIN-compose up -d)
           EOF
