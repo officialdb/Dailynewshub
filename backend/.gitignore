@@ -8,9 +8,7 @@ venv/
 firebase-credentials.json
 *.log
 uploads/
-alembic/versions/*.py
-!alembic/versions/__init__.py
- 
+
 # Ignore local env files and secrets
 .env
 .env.docker
