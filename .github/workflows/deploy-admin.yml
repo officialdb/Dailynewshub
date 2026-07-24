@@ -8,6 +8,11 @@ on:
       - 'admin_dash/**'
       - '.github/workflows/deploy-admin.yml'
 
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
 jobs:
   deploy:
     name: Deploy to Vercel
@@ -29,12 +34,12 @@ jobs:
 
       - name: Pull Vercel project settings
         working-directory: admin_dash
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production
 
       - name: Build project
         working-directory: admin_dash
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod
 
       - name: Deploy to Vercel (Production)
         working-directory: admin_dash
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod
