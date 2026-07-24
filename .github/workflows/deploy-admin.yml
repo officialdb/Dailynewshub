@@ -1,0 +1,45 @@
+name: Deploy Admin Dashboard to Vercel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'admin_dash/**'
+      - '.github/workflows/deploy-admin.yml'
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin_dash/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel project settings
+        working-directory: admin_dash
+        run: vercel pull --yes --environment=production
+
+      - name: Build project
+        working-directory: admin_dash
+        run: vercel build --prod
+
+      - name: Deploy to Vercel (Production)
+        working-directory: admin_dash
+        run: vercel deploy --prebuilt --prod
