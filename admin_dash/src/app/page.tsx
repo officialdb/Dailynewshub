@@ -202,13 +202,15 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-zinc-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#live-feed" className="hover:text-white transition-colors">Headlines</a>
-            <a href="#download" className="hover:text-white transition-colors">Get App</a>
+            <a href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Get App</a>
             <a href="#reviews" className="hover:text-white transition-colors">Reviews</a>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-4">
             <a
-              href="#download"
+              href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
             >
               <i className="fa fa-mobile text-xs sm:text-sm"></i>
@@ -244,11 +246,13 @@ export default function LandingPage() {
               <i className="fa fa-newspaper-o text-zinc-500 mr-2.5"></i>Today&apos;s Headlines
             </a>
             <a
-              href="#download"
+              href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => setMobileMenuOpen(false)}
               className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
             >
-              <i className="fa fa-download text-zinc-500 mr-2.5"></i>Download Mobile App
+              <i className="fa fa-download text-zinc-500 mr-2.5"></i>Download APK (Android)
             </a>
             <a
               href="#reviews"
@@ -289,27 +293,30 @@ export default function LandingPage() {
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md sm:max-w-none mx-auto">
             {/* Google Play Store Badge */}
             <a
-              href="#download"
+              href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto flex items-center justify-center gap-3.5 px-6 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white shadow-xl transition-all duration-200 active:scale-95 group cursor-pointer"
             >
               <i className="fa fa-android text-2xl text-white group-hover:scale-110 transition-transform"></i>
               <div className="text-left">
-                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">GET IT ON</p>
-                <p className="text-sm sm:text-base font-bold text-white tracking-wide mt-0.5">Google Play</p>
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">DOWNLOAD APK</p>
+                <p className="text-sm sm:text-base font-bold text-white tracking-wide mt-0.5">Android</p>
               </div>
             </a>
 
-            {/* Apple App Store Badge */}
-            <a
-              href="#download"
-              className="w-full sm:w-auto flex items-center justify-center gap-3.5 px-6 py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black shadow-xl transition-all duration-200 active:scale-95 group cursor-pointer"
+            {/* Apple App Store Badge - Coming Soon */}
+            <div
+              title="iOS version coming soon!"
+              className="w-full sm:w-auto flex items-center justify-center gap-3.5 px-6 py-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/60 text-white shadow-xl cursor-not-allowed opacity-70 relative group"
             >
-              <i className="fa fa-apple text-2xl text-black group-hover:scale-110 transition-transform"></i>
+              <i className="fa fa-apple text-2xl text-zinc-300"></i>
               <div className="text-left">
-                <p className="text-[10px] text-zinc-600 font-semibold uppercase tracking-wider leading-none">DOWNLOAD ON THE</p>
-                <p className="text-sm sm:text-base font-bold text-black tracking-wide mt-0.5">App Store</p>
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">COMING SOON ON</p>
+                <p className="text-sm sm:text-base font-bold text-zinc-200 tracking-wide mt-0.5">App Store</p>
               </div>
-            </a>
+              <span className="absolute -top-2 -right-2 text-[9px] font-bold bg-zinc-600 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">Soon</span>
+            </div>
           </div>
 
           {/* Hero App Screen Mockup */}
@@ -660,27 +667,30 @@ export default function LandingPage() {
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 w-full max-w-md sm:max-w-none mx-auto">
             {/* Google Play Store Large Badge */}
             <a
-              href="#download"
+              href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto flex items-center justify-center gap-4 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white shadow-2xl transition-all duration-200 active:scale-95 group cursor-pointer"
             >
               <i className="fa fa-android text-2xl sm:text-3xl text-white group-hover:scale-110 transition-transform"></i>
               <div className="text-left">
-                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">GET IT ON</p>
-                <p className="text-base sm:text-lg font-extrabold text-white tracking-wide mt-1">Google Play</p>
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">DOWNLOAD APK</p>
+                <p className="text-base sm:text-lg font-extrabold text-white tracking-wide mt-1">Android</p>
               </div>
             </a>
 
-            {/* Apple App Store Large Badge */}
-            <a
-              href="#download"
-              className="w-full sm:w-auto flex items-center justify-center gap-4 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-zinc-200 text-black shadow-2xl transition-all duration-200 active:scale-95 group cursor-pointer"
+            {/* Apple App Store Large Badge - Coming Soon */}
+            <div
+              title="iOS version coming soon!"
+              className="w-full sm:w-auto flex items-center justify-center gap-4 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-zinc-800/60 border border-zinc-700/60 text-white shadow-2xl cursor-not-allowed opacity-70 relative"
             >
-              <i className="fa fa-apple text-2xl sm:text-3xl text-black group-hover:scale-110 transition-transform"></i>
+              <i className="fa fa-apple text-2xl sm:text-3xl text-zinc-300"></i>
               <div className="text-left">
-                <p className="text-[10px] text-zinc-600 font-semibold uppercase tracking-wider leading-none">DOWNLOAD ON THE</p>
-                <p className="text-base sm:text-lg font-extrabold text-black tracking-wide mt-1">App Store</p>
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">COMING SOON ON</p>
+                <p className="text-base sm:text-lg font-extrabold text-zinc-200 tracking-wide mt-1">App Store</p>
               </div>
-            </a>
+              <span className="absolute -top-2 -right-2 text-[9px] font-bold bg-zinc-600 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">Soon</span>
+            </div>
           </div>
         </div>
       </section>
@@ -701,7 +711,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4 sm:gap-6 text-xs font-semibold text-zinc-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#download" className="hover:text-white transition-colors">Get App</a>
+            <a href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Get App</a>
             <a href="#reviews" className="hover:text-white transition-colors">Reviews</a>
           </div>
         </div>
