@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { articlesApi } from "@/lib/api";
 
-interface SampleNews {
+interface DisplayNews {
   id: string;
   title: string;
   category: string;
@@ -16,7 +16,7 @@ interface SampleNews {
   image: string;
 }
 
-const sampleArticles: SampleNews[] = [
+const fallbackArticles: DisplayNews[] = [
   {
     id: "1",
     title: "Quantum Breakthrough: 10,000-Qubit Processor Achieves Stable Error Correction",
@@ -88,148 +88,277 @@ const sampleArticles: SampleNews[] = [
   }
 ];
 
+const typingPhrases = [
+  "AI-Powered Real-Time News",
+  "30-Second Executive Summaries",
+  "Instant Breaking News Alerts",
+  "Unbiased Multi-Source Stories",
+  "Custom-Tailored Daily Feeds"
+];
+
 export default function LandingPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [newsItems, setNewsItems] = useState<DisplayNews[]>(fallbackArticles);
+  const [loadingBackend, setLoadingBackend] = useState(true);
+  const [usingBackendData, setUsingBackendData] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Typing effect state
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [typedText, setTypedText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const categories = ["All", "AI & Tech", "Markets & Economy", "Clean Energy", "Global Affairs", "Cyber & Infra"];
 
-  const filteredArticles = sampleArticles.filter(item => {
-    const matchesCategory = activeCategory === "All" || item.category === activeCategory;
-    const matchesQuery = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.summary.toLowerCase().includes(searchQuery.toLowerCase());
+  // Typing effect logic
+  useEffect(() => {
+    const currentPhrase = typingPhrases[phraseIndex];
+    let timer: NodeJS.Timeout;
+
+    if (isDeleting) {
+      if (typedText.length > 0) {
+        timer = setTimeout(() => {
+          setTypedText(currentPhrase.substring(0, typedText.length - 1));
+        }, 40);
+      } else {
+        setIsDeleting(false);
+        setPhraseIndex((prev) => (prev + 1) % typingPhrases.length);
+      }
+    } else {
+      if (typedText.length < currentPhrase.length) {
+        timer = setTimeout(() => {
+          setTypedText(currentPhrase.substring(0, typedText.length + 1));
+        }, 80);
+      } else {
+        // Pause at full word before deleting
+        timer = setTimeout(() => {
+          setIsDeleting(true);
+        }, 2200);
+      }
+    }
+
+    return () => clearTimeout(timer);
+  }, [typedText, isDeleting, phraseIndex]);
+
+  // Fetch real articles from backend on mount
+  useEffect(() => {
+    async function fetchBackendNews() {
+      try {
+        setLoadingBackend(true);
+        const response = await articlesApi.list(1, 12);
+        if (response?.data?.items && response.data.items.length > 0) {
+          const mapped: DisplayNews[] = response.data.items.map((art) => ({
+            id: art.id,
+            title: art.title,
+            category: art.category ?? "General",
+            summary: art.summary || art.content?.slice(0, 140) + "...",
+            author: art.author || "Editorial Staff",
+            timeAgo: art.published_at ? new Date(art.published_at).toLocaleDateString() : "Recently",
+            views: `${(art.view_count ?? 1200).toLocaleString()} views`,
+            readTime: "4 min read",
+            isTrending: art.is_trending || art.is_featured,
+            image: art.image_url || "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80",
+          }));
+          setNewsItems(mapped);
+          setUsingBackendData(true);
+        }
+      } catch {
+        // Fallback to sample articles seamlessly if backend is unauthenticated/unreachable
+      } finally {
+        setLoadingBackend(false);
+      }
+    }
+
+    fetchBackendNews();
+  }, []);
+
+  const filteredArticles = newsItems.filter((item) => {
+    const matchesCategory = activeCategory === "All" || item.category.toLowerCase() === activeCategory.toLowerCase();
+    const matchesQuery =
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.summary.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesQuery;
   });
 
   return (
-    <div className="min-h-screen bg-[#090A0F] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#050505] text-zinc-100 flex flex-col font-sans selection:bg-white selection:text-black overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#090A0F]/80 border-b border-slate-800/80 transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-cyan-400 p-[2px] shadow-lg shadow-blue-500/20">
-              <div className="w-full h-full bg-[#0d0f17] rounded-[10px] flex items-center justify-center">
-                <span className="material-symbols-outlined text-blue-400 text-xl font-bold">newspaper</span>
-              </div>
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#050505]/95 border-b border-zinc-800/80 transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shadow-lg shrink-0">
+              <i className="fa fa-newspaper-o text-white text-sm sm:text-lg"></i>
             </div>
             <div>
-              <span className="font-extrabold text-xl tracking-tight text-white flex items-center gap-1.5">
-                DailyNews<span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Hub</span>
+              <span className="font-extrabold text-base sm:text-xl tracking-tight text-white flex items-center gap-1">
+                DailyNews<span className="text-zinc-400">Hub</span>
               </span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block leading-none">News Engine & Platform</span>
+              <span className="text-[9px] sm:text-[10px] text-zinc-500 uppercase tracking-widest font-semibold block leading-none">Global News Engine</span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-            <a href="#features" className="hover:text-blue-400 transition-colors">Features</a>
-            <a href="#live-feed" className="hover:text-blue-400 transition-colors">Live Feed</a>
-            <a href="#metrics" className="hover:text-blue-400 transition-colors">Platform Stats</a>
-            <a href="#testimonials" className="hover:text-blue-400 transition-colors">Publishers</a>
+          {/* Desktop Nav links */}
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#live-feed" className="hover:text-white transition-colors">Headlines</a>
+            <a href="#download" className="hover:text-white transition-colors">Get App</a>
+            <a href="#reviews" className="hover:text-white transition-colors">Reviews</a>
           </nav>
 
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin/login"
-              className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 hover:shadow-blue-500/50 transition-all duration-200 active:scale-95"
+          <div className="flex items-center gap-2 sm:gap-4">
+            <a
+              href="#download"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
             >
-              <span className="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">admin_panel_settings</span>
-              <span>Admin Console</span>
-            </Link>
+              <i className="fa fa-mobile text-xs sm:text-sm"></i>
+              <span>Get App</span>
+            </a>
+
+            {/* Mobile Hamburger Toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+              aria-label="Toggle navigation menu"
+            >
+              <i className={`fa ${mobileMenuOpen ? "fa-times" : "fa-bars"} text-base`}></i>
+            </button>
           </div>
         </div>
+
+        {/* Mobile Dropdown Navigation */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-b border-zinc-800 bg-[#09090b] px-4 py-4 space-y-3 animate-fadeIn">
+            <a
+              href="#features"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
+            >
+              <i className="fa fa-magic text-zinc-500 mr-2.5"></i>Features
+            </a>
+            <a
+              href="#live-feed"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
+            >
+              <i className="fa fa-newspaper-o text-zinc-500 mr-2.5"></i>Today&apos;s Headlines
+            </a>
+            <a
+              href="#download"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
+            >
+              <i className="fa fa-download text-zinc-500 mr-2.5"></i>Download Mobile App
+            </a>
+            <a
+              href="#reviews"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5"
+            >
+              <i className="fa fa-star text-zinc-500 mr-2.5"></i>Reader Reviews
+            </a>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-24 lg:pt-24 lg:pb-32 border-b border-slate-800/60">
-        {/* Glow backdrop effects */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-blue-600/20 via-indigo-600/20 to-purple-600/10 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute -top-12 left-10 w-72 h-72 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-0 right-10 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none"></div>
-
+      <section className="relative overflow-hidden pt-10 pb-16 sm:pt-20 sm:pb-28 border-b border-zinc-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           {/* Announcement Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/90 border border-blue-500/30 shadow-inner mb-8 text-xs font-semibold text-blue-300 backdrop-blur-md">
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-            <span>Introducing DailyNewsHub Engine v2.0</span>
-            <span className="text-slate-500">|</span>
-            <span className="text-slate-300">AI News Summaries & Dynamic Telemetry</span>
+          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-zinc-900 border border-zinc-700 shadow-sm mb-6 sm:mb-8 text-[11px] sm:text-xs font-semibold text-zinc-300 max-w-full">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+            <span>Over 2,000,000+ Readers</span>
+            <span className="hidden sm:inline text-zinc-600">|</span>
+            <span className="text-zinc-200"><i className="fa fa-star text-zinc-400 mr-1"></i>4.9/5 Rating</span>
           </div>
 
-          {/* Main Headline */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.15]">
-            The AI-Powered Intelligence Hub for <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent">
-              Global Breaking News
+          {/* Main Headline with Typing Effect */}
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-tight sm:leading-[1.15] min-h-[120px] sm:min-h-[160px]">
+            Stay Informed with <br className="hidden sm:inline" />
+            <span className="text-zinc-400 font-extrabold inline-block">
+              {typedText}
+              <span className="animate-pulse text-white ml-0.5 font-light">|</span>
             </span>
           </h1>
 
-          <p className="mt-6 text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto font-normal leading-relaxed">
-            DailyNewsHub aggregates high-velocity news streams across technology, global affairs, and markets. Powered by real-time AI summarization, reader analytics, and enterprise moderation tools.
+          <p className="mt-4 sm:mt-6 text-sm sm:text-xl text-zinc-400 max-w-3xl mx-auto font-normal leading-relaxed px-2">
+            Get breaking updates, 30-second AI summaries, and verified topics delivered directly to your phone.
           </p>
 
-          {/* Hero CTAs */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/admin/login"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-base shadow-xl shadow-blue-600/30 hover:shadow-blue-500/50 transition-all duration-200 active:scale-95 flex items-center justify-center gap-3"
-            >
-              <span className="material-symbols-outlined">dashboard</span>
-              <span>Launch Admin Dashboard</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </Link>
-
+          {/* Store Download Buttons */}
+          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md sm:max-w-none mx-auto">
+            {/* Google Play Store Badge */}
             <a
-              href="#live-feed"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-base transition-all duration-200 flex items-center justify-center gap-2"
+              href="#download"
+              className="w-full sm:w-auto flex items-center justify-center gap-3.5 px-6 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white shadow-xl transition-all duration-200 active:scale-95 group cursor-pointer"
             >
-              <span className="material-symbols-outlined text-blue-400">play_circle</span>
-              <span>Explore Live Demo Feed</span>
+              <i className="fa fa-android text-2xl text-white group-hover:scale-110 transition-transform"></i>
+              <div className="text-left">
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">GET IT ON</p>
+                <p className="text-sm sm:text-base font-bold text-white tracking-wide mt-0.5">Google Play</p>
+              </div>
+            </a>
+
+            {/* Apple App Store Badge */}
+            <a
+              href="#download"
+              className="w-full sm:w-auto flex items-center justify-center gap-3.5 px-6 py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black shadow-xl transition-all duration-200 active:scale-95 group cursor-pointer"
+            >
+              <i className="fa fa-apple text-2xl text-black group-hover:scale-110 transition-transform"></i>
+              <div className="text-left">
+                <p className="text-[10px] text-zinc-600 font-semibold uppercase tracking-wider leading-none">DOWNLOAD ON THE</p>
+                <p className="text-sm sm:text-base font-bold text-black tracking-wide mt-0.5">App Store</p>
+              </div>
             </a>
           </div>
 
-          {/* Hero Preview Card Stack */}
-          <div className="mt-16 max-w-5xl mx-auto rounded-2xl p-2 bg-gradient-to-b from-slate-700/50 to-slate-900/80 border border-slate-700/80 shadow-2xl shadow-blue-900/20 backdrop-blur-xl">
-            <div className="rounded-xl bg-[#0d0f17] p-4 sm:p-6 text-left border border-slate-800/80">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
-                  <span className="w-3 h-3 rounded-full bg-amber-500/80"></span>
-                  <span className="w-3 h-3 rounded-full bg-emerald-500/80"></span>
-                  <span className="ml-2 text-xs font-mono text-slate-400">dailynewshub.internal / live-stream-monitor</span>
+          {/* Hero App Screen Mockup */}
+          <div className="mt-12 sm:mt-16 max-w-4xl mx-auto rounded-2xl sm:rounded-3xl p-2 sm:p-3 bg-zinc-900/60 border border-zinc-800 shadow-2xl">
+            <div className="rounded-xl sm:rounded-2xl bg-[#09090b] p-4 sm:p-6 text-left border border-zinc-800 flex flex-col md:flex-row items-center gap-6 sm:gap-8">
+              {/* Phone illustration mockup */}
+              <div className="w-full max-w-xs md:w-64 h-80 sm:h-96 rounded-3xl bg-zinc-950 border-4 border-zinc-700 p-3 flex flex-col justify-between shadow-2xl shrink-0 relative overflow-hidden mx-auto">
+                <div className="w-16 sm:w-20 h-3 bg-zinc-800 rounded-full mx-auto mb-2 sm:mb-3"></div>
+                <div className="space-y-2.5 sm:space-y-3 flex-1 overflow-hidden">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-[10px] font-bold text-white flex items-center justify-between">
+                    <span><i className="fa fa-bolt mr-1"></i> BREAKING NEWS</span>
+                    <span className="text-[9px] text-zinc-400">JUST NOW</span>
+                  </div>
+                  <div className="h-16 sm:h-20 bg-zinc-900 rounded-xl overflow-hidden relative">
+                    {/* eslint-disable-next-html-element-suppression */}
+                    <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=400&q=80" alt="App preview" className="w-full h-full object-cover" />
+                  </div>
+                  <p className="text-xs font-bold text-white leading-tight">Quantum Processor Achieves Error Correction</p>
+                  <p className="text-[10px] text-zinc-400 line-clamp-2">AI Summary: Room-temperature quantum coherence unlocked for real-time calculation.</p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-emerald-400 font-mono">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span>LIVE INGESTION ACTIVE (48ms latency)</span>
+                <div className="pt-2 border-t border-zinc-800 flex justify-around text-zinc-400">
+                  <i className="fa fa-newspaper-o text-xs sm:text-sm text-white"></i>
+                  <i className="fa fa-search text-xs sm:text-sm"></i>
+                  <i className="fa fa-bookmark-o text-xs sm:text-sm"></i>
+                  <i className="fa fa-user-o text-xs sm:text-sm"></i>
                 </div>
               </div>
 
-              {/* Ingestion snippet */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">AI Summarizer</span>
-                    <h4 className="text-sm font-semibold text-slate-100 mt-2">Automated TL;DR Generation</h4>
-                    <p className="text-xs text-slate-400 mt-1">Ingested 1,420 longform articles in last 60 seconds with 99.4% factual retention.</p>
-                  </div>
-                  <span className="text-[11px] text-blue-400 font-mono mt-3">⚡ Status: Operational</span>
-                </div>
+              {/* Pitch column */}
+              <div className="flex-1 space-y-3 sm:space-y-4 text-center md:text-left">
+                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-zinc-900 text-zinc-200 border border-zinc-700">
+                  DailyNewsHub Mobile Experience
+                </span>
+                <h3 className="text-xl sm:text-3xl font-extrabold text-white">Your World in 30 Seconds</h3>
+                <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                  Experience a high-contrast, distraction-free news reader engineered for smart readers. Filter topics, read AI-generated executive summaries, and listen to audio news briefs.
+                </p>
 
-                <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Telemetry</span>
-                    <h4 className="text-sm font-semibold text-slate-100 mt-2">Realtime Audience Spike Detection</h4>
-                    <p className="text-xs text-slate-400 mt-1">Algorithm detected +340% view velocity on quantum computing articles.</p>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-left">
+                    <i className="fa fa-magic text-white text-sm sm:text-base mb-1 block"></i>
+                    <p className="text-xs font-bold text-white">AI Summaries</p>
+                    <p className="text-[10px] sm:text-[11px] text-zinc-400">Read key facts instantly</p>
                   </div>
-                  <span className="text-[11px] text-indigo-400 font-mono mt-3">📈 Velocity: High</span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Moderation</span>
-                    <h4 className="text-sm font-semibold text-slate-100 mt-2">Multi-Tier Admin Review</h4>
-                    <p className="text-xs text-slate-400 mt-1">Role-based permission gating for article drafts, editor approvals, and user accounts.</p>
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-left">
+                    <i className="fa fa-bell-o text-white text-sm sm:text-base mb-1 block"></i>
+                    <p className="text-xs font-bold text-white">Instant Alerts</p>
+                    <p className="text-[10px] sm:text-[11px] text-zinc-400">Only verified stories</p>
                   </div>
-                  <span className="text-[11px] text-cyan-400 font-mono mt-3">🛡️ Auth: Protected</span>
                 </div>
               </div>
             </div>
@@ -237,67 +366,120 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Platform Stats Section */}
-      <section id="metrics" className="py-16 bg-slate-950/60 border-b border-slate-800/80">
+      {/* Reader Features Section */}
+      <section id="features" className="py-16 sm:py-24 bg-zinc-950 border-b border-zinc-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 text-center">
-              <p className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">12.4M+</p>
-              <p className="text-sm font-medium text-slate-400 mt-1">Monthly Active Readers</p>
+          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Designed for Modern Readers</h2>
+            <p className="text-zinc-400 mt-2 sm:mt-4 text-xs sm:text-base">
+              Built with precision typography and minimalist black-and-white design for effortless daily reading.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
+                <i className="fa fa-magic text-lg sm:text-xl"></i>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">AI Executive Summaries</h3>
+              <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                Get bullet-point summaries of complex multi-page articles so you stay fully informed in under 30 seconds.
+              </p>
             </div>
-            <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 text-center">
-              <p className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">99.99%</p>
-              <p className="text-sm font-medium text-slate-400 mt-1">Enterprise Uptime SLA</p>
+
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
+                <i className="fa fa-bell-o text-lg sm:text-xl"></i>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Custom Push Notifications</h3>
+              <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                Follow specific categories, technology topics, or market events and receive real-time mobile alerts.
+              </p>
             </div>
-            <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 text-center">
-              <p className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">&lt; 50ms</p>
-              <p className="text-sm font-medium text-slate-400 mt-1">Feed Ingestion Latency</p>
+
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
+                <i className="fa fa-cloud-download text-lg sm:text-xl"></i>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Offline Reading Mode</h3>
+              <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                Save stories automatically for offline reading during commutes, flights, or remote travels without internet.
+              </p>
             </div>
-            <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 text-center">
-              <p className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">850K+</p>
-              <p className="text-sm font-medium text-slate-400 mt-1">AI Summaries Published</p>
+
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
+                <i className="fa fa-volume-up text-lg sm:text-xl"></i>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Audio Briefings</h3>
+              <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                Listen to natural AI-narrated audio summaries of daily top stories while multi-tasking or walking.
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
+                <i className="fa fa-check-circle-o text-lg sm:text-xl"></i>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Multi-Source Verification</h3>
+              <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                Compare coverage across multiple global publishers to get an unbiased perspective on major headlines.
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
+                <i className="fa fa-moon-o text-lg sm:text-xl"></i>
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Rich Contrast OLED Dark Mode</h3>
+              <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                Sleek black-and-white layout designed to minimize eye fatigue during late-night reading sessions.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Live Interactive News Showcase */}
-      <section id="live-feed" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      {/* Live News Stream Section (Backend Connected) */}
+      <section id="live-feed" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-8 sm:mb-12">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-semibold mb-3 border border-blue-500/20">
-              <span className="material-symbols-outlined text-sm">rss_feed</span>
-              Interactive Demonstration
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 text-zinc-300 text-xs font-semibold mb-3 border border-zinc-700">
+              <i className="fa fa-circle text-[8px] text-emerald-400"></i>
+              <span>Experience Today&apos;s Headlines</span>
+              {usingBackendData && (
+                <span className="ml-1 text-[10px] text-zinc-500 uppercase tracking-widest">(Live Backend Feed)</span>
+              )}
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Explore the Live News Stream</h2>
-            <p className="text-slate-400 mt-2 text-base max-w-2xl">
-              Experience the fast-loading, AI-summarized news feed designed for modern readers and content creators.
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Today&apos;s Top Trending Stories</h2>
+            <p className="text-zinc-400 mt-1 sm:mt-2 text-xs sm:text-base max-w-2xl">
+              Explore breaking stories fetched directly from the DailyNewsHub intelligence engine.
             </p>
           </div>
 
           {/* Search bar */}
           <div className="relative w-full md:w-80">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+            <i className="fa fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm"></i>
             <input
               type="text"
-              placeholder="Search news titles or keywords..."
+              placeholder="Search news stories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
             />
           </div>
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar">
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 sm:mb-8 no-scrollbar">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
+              className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                 activeCategory === cat
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-                  : "bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800"
+                  ? "bg-white text-black shadow-lg"
+                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800"
               }`}
             >
               {cat}
@@ -305,22 +487,27 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* Article Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredArticles.length === 0 ? (
-            <div className="col-span-full py-16 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
-              <span className="material-symbols-outlined text-4xl mb-2">find_in_page</span>
-              <p className="text-base font-medium">No articles matched your search query.</p>
-            </div>
-          ) : (
-            filteredArticles.map((article) => (
+        {/* Articles List */}
+        {loadingBackend ? (
+          <div className="py-16 text-center text-zinc-400">
+            <i className="fa fa-circle-o-notch fa-spin text-3xl mb-3 block text-white"></i>
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider">Fetching live news stories...</p>
+          </div>
+        ) : filteredArticles.length === 0 ? (
+          <div className="py-16 text-center text-zinc-500 bg-zinc-900/40 rounded-2xl border border-zinc-800">
+            <i className="fa fa-newspaper-o text-4xl mb-3 block text-zinc-600"></i>
+            <p className="text-sm sm:text-base font-medium">No articles matched your search filter.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {filteredArticles.map((article) => (
               <div
                 key={article.id}
-                className="group rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all duration-200 overflow-hidden flex flex-col justify-between hover:shadow-xl hover:shadow-blue-900/10"
+                className="group rounded-2xl bg-[#09090b] border border-zinc-800 hover:border-zinc-600 transition-all duration-200 overflow-hidden flex flex-col justify-between shadow-xl"
               >
                 <div>
                   {/* Card Image */}
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-800">
+                  <div className="relative h-44 sm:h-48 w-full overflow-hidden bg-zinc-900">
                     {/* eslint-disable-next-html-element-suppression */}
                     <img
                       src={article.image}
@@ -328,12 +515,12 @@ export default function LandingPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-3 left-3 flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-950/80 backdrop-blur-md text-blue-400 border border-blue-500/30">
+                      <span className="px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold bg-black/90 text-white border border-zinc-700">
                         {article.category}
                       </span>
                       {article.isTrending && (
-                        <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/90 text-slate-950 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs">trending_up</span>
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold bg-white text-black flex items-center gap-1">
+                          <i className="fa fa-bolt text-xs"></i>
                           Trending
                         </span>
                       )}
@@ -341,23 +528,23 @@ export default function LandingPage() {
                   </div>
 
                   {/* Card Body */}
-                  <div className="p-6">
-                    <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-                      <span>{article.timeAgo}</span>
+                  <div className="p-4 sm:p-6">
+                    <div className="flex items-center justify-between text-xs text-zinc-500 mb-2 font-mono">
+                      <span><i className="fa fa-clock-o mr-1"></i>{article.timeAgo}</span>
                       <span>{article.readTime}</span>
                     </div>
 
-                    <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors leading-snug">
+                    <h3 className="font-bold text-base sm:text-lg text-white group-hover:text-zinc-300 transition-colors leading-snug">
                       {article.title}
                     </h3>
 
-                    {/* AI Summary Badge + Text */}
-                    <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-400 mb-1">
-                        <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                    {/* AI Summary Box */}
+                    <div className="mt-3 sm:mt-4 p-3 sm:p-3.5 rounded-xl bg-zinc-950 border border-zinc-800">
+                      <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-zinc-300 mb-1">
+                        <i className="fa fa-magic text-xs"></i>
                         AI Executive Summary
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">
+                      <p className="text-xs text-zinc-400 leading-relaxed">
                         {article.summary}
                       </p>
                     </div>
@@ -365,180 +552,157 @@ export default function LandingPage() {
                 </div>
 
                 {/* Card Footer */}
-                <div className="px-6 py-4 border-t border-slate-800/80 bg-slate-950/40 flex items-center justify-between text-xs text-slate-400">
-                  <span className="font-medium text-slate-300">{article.author}</span>
-                  <span className="flex items-center gap-1 text-slate-400">
-                    <span className="material-symbols-outlined text-sm">visibility</span>
+                <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-zinc-800/80 bg-zinc-950/80 flex items-center justify-between text-xs text-zinc-400">
+                  <span className="font-medium text-zinc-300 truncate max-w-[150px]">{article.author}</span>
+                  <span className="flex items-center gap-1 text-zinc-500 font-mono shrink-0">
+                    <i className="fa fa-eye text-xs"></i>
                     {article.views}
                   </span>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Feature Showcase Grid */}
-      <section id="features" className="py-24 bg-slate-950/80 border-t border-b border-slate-800/80">
+      {/* Reader Reviews */}
+      <section id="reviews" className="py-16 sm:py-24 bg-zinc-950 border-t border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Built for Next-Gen Newsrooms & Enterprise Publishing</h2>
-            <p className="text-slate-400 mt-4 text-base">
-              DailyNewsHub delivers an end-to-end stack for real-time news management, reader engagement, and analytics.
-            </p>
+          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Loved by Readers Worldwide</h2>
+            <p className="text-zinc-400 mt-2 text-xs sm:text-base">See why millions choose DailyNewsHub for their daily news routine.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-8 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-blue-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-2xl">psychology</span>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Automated AI Summarization</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Generate concise, high-accuracy summaries of lengthy articles automatically using neural language processing algorithms.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-indigo-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-2xl">analytics</span>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Real-Time Platform Telemetry</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Monitor user registration velocity, daily article creation rates, and view counts through clean admin dashboard KPIs.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-2xl">shield_lock</span>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Role-Based Access Control</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Enforce strict admin authentication with secure token session handling and instant account activation toggles.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-purple-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-2xl">edit_note</span>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Rich Article Management</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Full-featured editor supporting categories, author attribution, trending tags, draft states, and SEO metadata.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-emerald-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-2xl">bolt</span>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Sub-50ms Global CDN</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Optimized Next.js server infrastructure ensures ultra-fast page loads and responsive data fetching.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-amber-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-2xl">group</span>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">User Moderation Suite</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Comprehensive directory of user accounts with real-time status management and administrative controls.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section id="testimonials" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl font-extrabold text-white">Trusted by Leading Digital Media Outlets</h2>
-          <p className="text-slate-400 mt-2">Here is what chief editors and platform leads say about DailyNewsHub.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
-            <p className="text-slate-300 text-sm italic leading-relaxed">
-              &quot;DailyNewsHub transformed how our newsroom operates. The AI summarization and admin analytics give us complete visibility over breaking news trends.&quot;
-            </p>
-            <div className="mt-6 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600/30 flex items-center justify-center text-blue-400 font-bold">VC</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
               <div>
-                <p className="text-sm font-bold text-white">Victoria Cross</p>
-                <p className="text-xs text-slate-400">Editor-in-Chief, Global Tech Review</p>
+                <div className="flex items-center gap-1 text-zinc-200 mb-3 text-xs">
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                </div>
+                <p className="text-zinc-300 text-xs sm:text-sm italic leading-relaxed">
+                  &quot;The AI summaries are incredible! I get caught up on global markets and tech news in under two minutes every morning.&quot;
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold text-xs shrink-0">SJ</div>
+                <div>
+                  <p className="text-xs sm:text-sm font-bold text-white">Sarah Jenkins</p>
+                  <p className="text-[11px] text-zinc-500">Tech Entrepreneur</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
-            <p className="text-slate-300 text-sm italic leading-relaxed">
-              &quot;The protected admin console and user management interface are rock solid. Managing editors and managing article statuses is effortless.&quot;
-            </p>
-            <div className="mt-6 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-400 font-bold">DK</div>
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
               <div>
-                <p className="text-sm font-bold text-white">David Kroll</p>
-                <p className="text-xs text-slate-400">VP of Engineering, MarketWire Daily</p>
+                <div className="flex items-center gap-1 text-zinc-200 mb-3 text-xs">
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                </div>
+                <p className="text-zinc-300 text-xs sm:text-sm italic leading-relaxed">
+                  &quot;No ads, no clutter, just pure news. The custom topic alerts mean I never miss critical updates.&quot;
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold text-xs shrink-0">MC</div>
+                <div>
+                  <p className="text-xs sm:text-sm font-bold text-white">Michael Chen</p>
+                  <p className="text-[11px] text-zinc-500">Financial Analyst</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
-            <p className="text-slate-300 text-sm italic leading-relaxed">
-              &quot;Sub-50ms ingestion latency with automated AI insights allows us to publish verified stories minutes before competing networks.&quot;
-            </p>
-            <div className="mt-6 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-cyan-600/30 flex items-center justify-center text-cyan-400 font-bold">MS</div>
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
               <div>
-                <p className="text-sm font-bold text-white">Maria Santos</p>
-                <p className="text-xs text-slate-400">Head of Content Operations, FinNews</p>
+                <div className="flex items-center gap-1 text-zinc-200 mb-3 text-xs">
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                  <i className="fa fa-star"></i>
+                </div>
+                <p className="text-zinc-300 text-xs sm:text-sm italic leading-relaxed">
+                  &quot;The offline reading mode is essential for my flights. Ultra clean dark mode design and super fast.&quot;
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold text-xs shrink-0">ER</div>
+                <div>
+                  <p className="text-xs sm:text-sm font-bold text-white">Elena Rodriguez</p>
+                  <p className="text-[11px] text-zinc-500">Software Architect</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Admin Portal CTA Banner */}
-      <section className="py-20 bg-gradient-to-r from-blue-900/30 via-indigo-900/40 to-slate-900 border-t border-slate-800 relative overflow-hidden">
+      {/* Main Download App Call-to-Action Section */}
+      <section id="download" className="py-16 sm:py-24 bg-[#050505] border-t border-zinc-800 relative overflow-hidden">
         <div className="max-w-5xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Ready to Manage the DailyNewsHub Platform?</h2>
-          <p className="text-slate-300 mt-4 text-base max-w-2xl mx-auto">
-            Sign in to the protected admin console to publish articles, view platform telemetry, and manage registered user accounts.
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-zinc-900 text-zinc-300 text-xs font-bold mb-4 sm:mb-6 border border-zinc-700">
+            <i className="fa fa-download text-xs"></i>
+            Available Now on iOS & Android
+          </div>
+
+          <h2 className="text-2xl sm:text-5xl font-extrabold text-white tracking-tight">Get DailyNewsHub Today</h2>
+          <p className="text-zinc-400 mt-3 sm:mt-4 text-xs sm:text-lg max-w-2xl mx-auto px-2">
+            Join over 2 million readers staying informed with real-time AI summaries and instant topic notifications.
           </p>
-          <div className="mt-8 flex justify-center">
-            <Link
-              href="/admin/login"
-              className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-base shadow-xl shadow-blue-600/40 transition-all duration-200 active:scale-95 flex items-center gap-2"
+
+          {/* Large Store Download Badges */}
+          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 w-full max-w-md sm:max-w-none mx-auto">
+            {/* Google Play Store Large Badge */}
+            <a
+              href="#download"
+              className="w-full sm:w-auto flex items-center justify-center gap-4 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white shadow-2xl transition-all duration-200 active:scale-95 group cursor-pointer"
             >
-              <span className="material-symbols-outlined">lock_open</span>
-              Access Admin Portal (/admin/login)
-            </Link>
+              <i className="fa fa-android text-2xl sm:text-3xl text-white group-hover:scale-110 transition-transform"></i>
+              <div className="text-left">
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">GET IT ON</p>
+                <p className="text-base sm:text-lg font-extrabold text-white tracking-wide mt-1">Google Play</p>
+              </div>
+            </a>
+
+            {/* Apple App Store Large Badge */}
+            <a
+              href="#download"
+              className="w-full sm:w-auto flex items-center justify-center gap-4 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-zinc-200 text-black shadow-2xl transition-all duration-200 active:scale-95 group cursor-pointer"
+            >
+              <i className="fa fa-apple text-2xl sm:text-3xl text-black group-hover:scale-110 transition-transform"></i>
+              <div className="text-left">
+                <p className="text-[10px] text-zinc-600 font-semibold uppercase tracking-wider leading-none">DOWNLOAD ON THE</p>
+                <p className="text-base sm:text-lg font-extrabold text-black tracking-wide mt-1">App Store</p>
+              </div>
+            </a>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 bg-slate-950 border-t border-slate-900 text-slate-400 text-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      {/* Public App Footer */}
+      <footer className="py-8 sm:py-12 bg-black border-t border-zinc-900 text-zinc-400 text-xs sm:text-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 text-center md:text-left">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-lg">newspaper</span>
+            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white">
+              <i className="fa fa-newspaper-o text-sm"></i>
             </div>
-            <span className="font-bold text-white">DailyNewsHub Engine</span>
+            <span className="font-bold text-white">DailyNewsHub</span>
           </div>
 
-          <p className="text-xs text-slate-500">
-            © {new Date().getFullYear()} DailyNewsHub Inc. All rights reserved. Enterprise News Platform.
+          <p className="text-[11px] sm:text-xs text-zinc-600">
+            © {new Date().getFullYear()} DailyNewsHub Inc. All rights reserved.
           </p>
 
-          <div className="flex items-center gap-6 text-xs font-semibold">
-            <Link href="/admin/login" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
-              Admin Sign In
-            </Link>
+          <div className="flex items-center gap-4 sm:gap-6 text-xs font-semibold text-zinc-400">
+            <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#download" className="hover:text-white transition-colors">Get App</a>
+            <a href="#reviews" className="hover:text-white transition-colors">Reviews</a>
           </div>
         </div>
       </footer>
