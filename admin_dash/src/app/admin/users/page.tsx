@@ -2,10 +2,105 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { usersApi } from "@/lib/api";
-import type { User } from "@/lib/types";
+import type { User, UserUpdate } from "@/lib/types";
 
-function UserRow({ user, onToggleActive, onDelete }: {
+function UserForm({
+  title,
+  initialData,
+  onSubmit,
+  onCancel,
+  submitting,
+}: {
+  title: string;
+  initialData: { name: string; email: string; password: string; is_admin: boolean; is_active: boolean };
+  onSubmit: (data: { name: string; email: string; password: string; is_admin: boolean; is_active: boolean }) => void;
+  onCancel: () => void;
+  submitting: boolean;
+}) {
+  const [form, setForm] = useState(initialData);
+
+  return (
+    <div className="mb-6 bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
+      <h3 className="font-headline-sm text-headline-sm text-on-surface mb-4">{title}</h3>
+      <form
+        onSubmit={e => { e.preventDefault(); onSubmit(form); }}
+        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+      >
+        <div>
+          <label className="block text-label-md text-on-surface-variant mb-1.5">Name</label>
+          <input
+            type="text"
+            required
+            value={form.name}
+            onChange={e => setForm(d => ({ ...d, name: e.target.value }))}
+            className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all"
+          />
+        </div>
+        <div>
+          <label className="block text-label-md text-on-surface-variant mb-1.5">Email</label>
+          <input
+            type="email"
+            required
+            value={form.email}
+            onChange={e => setForm(d => ({ ...d, email: e.target.value }))}
+            className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all"
+          />
+        </div>
+        <div>
+          <label className="block text-label-md text-on-surface-variant mb-1.5">
+            Password{initialData.password === "" ? "" : " (leave blank to keep current)"}
+          </label>
+          <input
+            type="password"
+            minLength={initialData.password === "" ? 8 : undefined}
+            required={initialData.password === ""}
+            value={form.password}
+            onChange={e => setForm(d => ({ ...d, password: e.target.value }))}
+            className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all"
+            placeholder={initialData.password === "" ? "Min 8 characters" : "Leave blank to keep"}
+          />
+        </div>
+        <div className="flex items-end gap-6">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_admin}
+              onChange={e => setForm(d => ({ ...d, is_admin: e.target.checked }))}
+              className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary"
+            />
+            <span className="text-body-md text-on-surface">Admin</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={e => setForm(d => ({ ...d, is_active: e.target.checked }))}
+              className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary"
+            />
+            <span className="text-body-md text-on-surface">Active</span>
+          </label>
+        </div>
+        <div className="sm:col-span-2 flex items-center gap-3">
+          <button type="submit" disabled={submitting} className="px-6 py-2.5 bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
+            {submitting ? "Saving..." : initialData.password === "" ? "Create User" : "Update User"}
+          </button>
+          <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-outline rounded-lg font-label-md text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function UserRow({
+  user,
+  onEdit,
+  onToggleActive,
+  onDelete,
+}: {
   user: User;
+  onEdit: (user: User) => void;
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string) => void;
 }) {
@@ -38,6 +133,13 @@ function UserRow({ user, onToggleActive, onDelete }: {
       <td className="px-stack-md py-4 text-right">
         <div className="flex items-center justify-end gap-2">
           <button
+            onClick={() => onEdit(user)}
+            title="Edit user"
+            className="p-1.5 rounded-lg hover:bg-surface-container text-outline hover:text-primary transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit</span>
+          </button>
+          <button
             onClick={() => onToggleActive(user.id, !user.is_active)}
             title={user.is_active ? "Deactivate" : "Activate"}
             className="p-1.5 rounded-lg hover:bg-surface-container text-outline hover:text-primary transition-colors cursor-pointer"
@@ -57,6 +159,8 @@ function UserRow({ user, onToggleActive, onDelete }: {
   );
 }
 
+const emptyForm = { name: "", email: "", password: "", is_admin: false, is_active: true };
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
@@ -64,6 +168,10 @@ export default function UsersPage() {
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchUsers = useCallback(async (p: number) => {
     setLoading(true);
@@ -81,6 +189,41 @@ export default function UsersPage() {
   }, []);
 
   useEffect(() => { fetchUsers(page); }, [page, fetchUsers]);
+
+  async function handleCreate(data: { name: string; email: string; password: string; is_admin: boolean; is_active: boolean }) {
+    setSubmitting(true);
+    try {
+      await usersApi.create({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        is_admin: data.is_admin,
+        is_active: data.is_active,
+      });
+      setShowCreate(false);
+      await fetchUsers(page);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Create failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleUpdate(data: { name: string; email: string; password: string; is_admin: boolean; is_active: boolean }) {
+    if (!editingUser) return;
+    setSubmitting(true);
+    try {
+      const payload: UserUpdate = { name: data.name, email: data.email, is_admin: data.is_admin, is_active: data.is_active };
+      if (data.password) payload.password = data.password;
+      await usersApi.update(editingUser.id, payload);
+      setEditingUser(null);
+      await fetchUsers(page);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleToggleActive(id: string, active: boolean) {
     try {
@@ -109,12 +252,45 @@ export default function UsersPage() {
           <h1 className="font-display-lg text-display-lg text-on-surface">Users</h1>
           <p className="font-body-md text-body-md text-secondary">{total} registered accounts</p>
         </div>
+        <button
+          onClick={() => { setEditingUser(null); setShowCreate(true); }}
+          className="flex items-center gap-2 px-stack-md py-[10px] bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all shadow-md shadow-primary/20 active:scale-95 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[18px]">person_add</span>
+          New User
+        </button>
       </div>
 
       {error && (
         <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-error-container/20 border border-error/30 rounded-xl text-error text-sm">
           <span className="material-symbols-outlined text-[18px]">error</span>{error}
         </div>
+      )}
+
+      {showCreate && (
+        <UserForm
+          title="Create New User"
+          initialData={emptyForm}
+          onSubmit={handleCreate}
+          onCancel={() => setShowCreate(false)}
+          submitting={submitting}
+        />
+      )}
+
+      {editingUser && (
+        <UserForm
+          title={`Edit User — ${editingUser.name}`}
+          initialData={{
+            name: editingUser.name,
+            email: editingUser.email,
+            password: "",
+            is_admin: editingUser.is_admin,
+            is_active: editingUser.is_active,
+          }}
+          onSubmit={handleUpdate}
+          onCancel={() => setEditingUser(null)}
+          submitting={submitting}
+        />
       )}
 
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
@@ -144,14 +320,19 @@ export default function UsersPage() {
                 <tr><td colSpan={5} className="px-stack-md py-12 text-center text-secondary">No users found.</td></tr>
               ) : (
                 users.map(user => (
-                  <UserRow key={user.id} user={user} onToggleActive={handleToggleActive} onDelete={handleDelete} />
+                  <UserRow
+                    key={user.id}
+                    user={user}
+                    onEdit={u => { setShowCreate(false); setEditingUser(u); }}
+                    onToggleActive={handleToggleActive}
+                    onDelete={handleDelete}
+                  />
                 ))
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
         <div className="px-stack-md py-stack-md border-t border-outline-variant flex items-center justify-between bg-surface-container-low/30">
           <p className="text-label-md text-secondary">
             Page <span className="font-bold text-on-surface">{page}</span> of <span className="font-bold text-on-surface">{pages}</span> · {total} total

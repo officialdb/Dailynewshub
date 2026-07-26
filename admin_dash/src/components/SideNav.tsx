@@ -8,6 +8,10 @@ const navItems = [
   { href: "/admin", icon: "analytics", label: "Overview" },
   { href: "/admin/articles", icon: "article", label: "Articles" },
   { href: "/admin/users", icon: "group", label: "Users" },
+  { href: "/admin/categories", icon: "category", label: "Categories" },
+  { href: "/admin/reels", icon: "movie", label: "Reels" },
+  { href: "/admin/notifications", icon: "notifications", label: "Notifications" },
+  { href: "/admin/comments", icon: "forum", label: "Comments" },
 ];
 
 export default function SideNav() {

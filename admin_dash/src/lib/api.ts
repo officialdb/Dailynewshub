@@ -68,6 +68,12 @@ export const usersApi = {
       `/admin/users?page=${page}&limit=${limit}`
     ),
 
+  create: (payload: import("./types").UserCreate) =>
+    apiFetch<{ success: boolean; data: import("./types").User }>(
+      "/admin/users",
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
+
   update: (id: string, payload: import("./types").UserUpdate) =>
     apiFetch<{ success: boolean; data: import("./types").User }>(
       `/admin/users/${id}`,
@@ -114,5 +120,89 @@ export const analyticsApi = {
   get: () =>
     apiFetch<{ success: boolean; data: import("./types").Analytics }>(
       "/admin/analytics"
+    ),
+};
+
+// ─── Admin: Categories ───────────────────────────────────────────────────────
+
+export const categoriesApi = {
+  list: () =>
+    apiFetch<{ success: boolean; data: import("./types").Category[] }>(
+      "/admin/categories"
+    ),
+
+  create: (payload: import("./types").CategoryCreate) =>
+    apiFetch<{ success: boolean; data: import("./types").Category }>(
+      "/categories",
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
+
+  update: (id: string, payload: import("./types").CategoryUpdate) =>
+    apiFetch<{ success: boolean; data: import("./types").Category }>(
+      `/categories/${id}`,
+      { method: "PUT", body: JSON.stringify(payload) }
+    ),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>(
+      `/categories/${id}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ─── Admin: Reels ────────────────────────────────────────────────────────────
+
+export const reelsApi = {
+  list: (page = 1, limit = 10) =>
+    apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").Reel> }>(
+      `/admin/reels?page=${page}&limit=${limit}`
+    ),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>(
+      `/admin/reels/${id}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ─── Admin: Notifications ────────────────────────────────────────────────────
+
+export const notificationsApi = {
+  list: (page = 1, limit = 10) =>
+    apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").Notification> }>(
+      `/admin/notifications?page=${page}&limit=${limit}`
+    ),
+
+  send: (payload: import("./types").NotificationSend) =>
+    apiFetch<{ success: boolean; data: { notification_id: string; sent_count: number } }>(
+      "/admin/notifications/send",
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
+
+  schedule: (payload: import("./types").NotificationSchedule) =>
+    apiFetch<{ success: boolean; data: { notification_id: string; scheduled_at: string } }>(
+      "/admin/notifications/schedule",
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>(
+      `/admin/notifications/${id}`,
+      { method: "DELETE" }
+    ),
+};
+
+// ─── Admin: Comments ─────────────────────────────────────────────────────────
+
+export const commentsApi = {
+  list: (page = 1, limit = 10) =>
+    apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").Comment> }>(
+      `/admin/comments?page=${page}&limit=${limit}`
+    ),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>(
+      `/admin/comments/${id}`,
+      { method: "DELETE" }
     ),
 };
