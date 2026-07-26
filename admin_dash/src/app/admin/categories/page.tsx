@@ -12,6 +12,9 @@ export default function CategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{ name: string; slug: string; icon: string }>({ name: "", slug: "", icon: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -27,6 +30,33 @@ export default function CategoriesPage() {
   }, []);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  const filtered = categories.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.slug.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const zeroArticleCats = categories.filter(c => c.article_count === 0);
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map(c => c.id)));
+    }
+  }
+
+  function selectEmpty() {
+    setSelected(new Set(zeroArticleCats.filter(c => filtered.some(f => f.id === c.id)).map(c => c.id)));
+  }
 
   function openCreate() {
     setEditingId(null);
@@ -70,8 +100,25 @@ export default function CategoriesPage() {
     try {
       await categoriesApi.delete(id);
       setCategories(prev => prev.filter(c => c.id !== id));
+      setSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selected);
+    const names = ids.map(id => categories.find(c => c.id === id)?.name ?? "unknown");
+    if (!confirm(`Delete ${ids.length} categories?\n\n${names.join(", ")}\n\nArticles in these categories will become uncategorized.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(ids.map(id => categoriesApi.delete(id)));
+      setCategories(prev => prev.filter(c => !selected.has(c.id)));
+      setSelected(new Set());
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Bulk delete failed");
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -80,7 +127,7 @@ export default function CategoriesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-stack-lg">
         <div>
           <h1 className="font-display-lg text-display-lg text-on-surface">Categories</h1>
-          <p className="font-body-md text-body-md text-secondary">{categories.length} categories</p>
+          <p className="font-body-md text-body-md text-secondary">{categories.length} categories · {zeroArticleCats.length} empty</p>
         </div>
         <button
           onClick={openCreate}
@@ -144,11 +191,51 @@ export default function CategoriesPage() {
         </div>
       )}
 
+      {/* Search + Bulk Actions Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <span className="material-symbols-outlined text-[18px] text-outline absolute left-3 top-1/2 -translate-y-1/2">search</span>
+          <input
+            type="text"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setSelected(new Set()); }}
+            placeholder="Search categories..."
+            className="w-full pl-10 pr-4 py-2.5 border border-outline-variant rounded-xl bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={selectEmpty}
+            className="px-4 py-2.5 border border-outline-variant rounded-xl text-on-surface-variant font-label-md hover:bg-surface-container-high transition-colors cursor-pointer whitespace-nowrap"
+          >
+            Select empty ({zeroArticleCats.filter(c => filtered.some(f => f.id === c.id)).length})
+          </button>
+          {selected.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-2 px-4 py-2.5 bg-error text-on-error rounded-xl font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">delete</span>
+              {bulkDeleting ? "Deleting..." : `Delete ${selected.size}`}
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface-container-low/50 border-b border-outline-variant">
+                <th className="px-stack-md py-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selected.size === filtered.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+                  />
+                </th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Category</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Slug</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Articles</th>
@@ -160,6 +247,7 @@ export default function CategoriesPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
+                    <td className="px-stack-md py-4"><div className="h-4 w-4 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-32 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-24 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-8 bg-outline-variant rounded"></div></td>
@@ -167,11 +255,21 @@ export default function CategoriesPage() {
                     <td></td>
                   </tr>
                 ))
-              ) : categories.length === 0 ? (
-                <tr><td colSpan={5} className="px-stack-md py-12 text-center text-secondary">No categories found. <button onClick={openCreate} className="text-primary hover:underline cursor-pointer">Create one.</button></td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} className="px-stack-md py-12 text-center text-secondary">
+                  {search ? "No categories match your search." : <>No categories found. <button onClick={openCreate} className="text-primary hover:underline cursor-pointer">Create one.</button></>}
+                </td></tr>
               ) : (
-                categories.map(cat => (
-                  <tr key={cat.id} className="hover:bg-surface-container/40 transition-colors group">
+                filtered.map(cat => (
+                  <tr key={cat.id} className={`transition-colors group ${selected.has(cat.id) ? "bg-primary/5" : "hover:bg-surface-container/40"}`}>
+                    <td className="px-stack-md py-4">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(cat.id)}
+                        onChange={() => toggleSelect(cat.id)}
+                        className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+                      />
+                    </td>
                     <td className="px-stack-md py-4">
                       <div className="flex items-center gap-2">
                         {cat.icon && <span className="material-symbols-outlined text-[20px] text-primary">{cat.icon}</span>}
@@ -180,7 +278,9 @@ export default function CategoriesPage() {
                     </td>
                     <td className="px-stack-md py-4 text-sm text-secondary font-mono">{cat.slug}</td>
                     <td className="px-stack-md py-4">
-                      <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-bold">{cat.article_count}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${cat.article_count > 0 ? "bg-surface-container-high text-on-surface-variant" : "bg-error/10 text-error"}`}>
+                        {cat.article_count}
+                      </span>
                     </td>
                     <td className="px-stack-md py-4 text-sm text-secondary">{new Date(cat.created_at).toLocaleDateString()}</td>
                     <td className="px-stack-md py-4 text-right">
