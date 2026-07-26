@@ -1,0 +1,12 @@
+services:
+  backend:
+    build: .
+    image: backend:local
+
+  celery-worker:
+    build: .
+    image: backend:local
+
+  celery-beat:
+    build: .
+    image: backend:local
