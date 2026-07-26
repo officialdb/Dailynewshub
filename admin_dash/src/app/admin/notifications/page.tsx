@@ -181,7 +181,13 @@ function SendTab() {
       const payload: { title: string; body: string; article_id?: string; segment?: string } = { title, body, segment };
       if (articleId.trim()) payload.article_id = articleId.trim();
       const res = await notificationsApi.send(payload);
-      setResult({ success: true, message: `Notification sent to ${res.data.sent_count} devices (${segment}).` });
+      const total = (res.data as { total_tokens?: number }).total_tokens ?? res.data.sent_count;
+      const msg = total === 0
+        ? `No device tokens registered for "${segment}" segment. Users need to open the mobile app first.`
+        : res.data.sent_count < total
+          ? `Sent to ${res.data.sent_count}/${total} devices (${segment}). Some deliveries failed — check Firebase credentials.`
+          : `Sent to ${res.data.sent_count} devices (${segment}).`;
+      setResult({ success: true, message: msg });
       setTitle("");
       setBody("");
       setArticleId("");
