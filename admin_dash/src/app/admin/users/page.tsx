@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { usersApi } from "@/lib/api";
 import type { User, UserUpdate } from "@/lib/types";
+import { useToast } from "@/context/ToastContext";
+import { exportToCSV } from "@/lib/export";
 
 function UserForm({
   title,
@@ -162,6 +164,7 @@ function UserRow({
 const emptyForm = { name: "", email: "", password: "", is_admin: false, is_active: true };
 
 export default function UsersPage() {
+  const { toast, confirm } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -215,7 +218,7 @@ export default function UsersPage() {
       setShowCreate(false);
       await fetchUsers(page, search);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Create failed");
+      toast(err instanceof Error ? err.message : "Create failed", "error");
     } finally {
       setSubmitting(false);
     }
@@ -231,7 +234,7 @@ export default function UsersPage() {
       setEditingUser(null);
       await fetchUsers(page, search);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      toast(err instanceof Error ? err.message : "Update failed", "error");
     } finally {
       setSubmitting(false);
     }
@@ -242,18 +245,18 @@ export default function UsersPage() {
       await usersApi.update(id, { is_active: active });
       setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: active } : u));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      toast(err instanceof Error ? err.message : "Update failed", "error");
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this user? This cannot be undone.")) return;
+    if (!await confirm("Are you sure you want to delete this user? This cannot be undone.")) return;
     try {
       await usersApi.delete(id);
       setUsers(prev => prev.filter(u => u.id !== id));
       setTotal(t => t - 1);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      toast(err instanceof Error ? err.message : "Delete failed", "error");
     }
   }
 
@@ -264,13 +267,25 @@ export default function UsersPage() {
           <h1 className="font-display-lg text-display-lg text-on-surface">Users</h1>
           <p className="font-body-md text-body-md text-secondary">{total} registered accounts</p>
         </div>
-        <button
-          onClick={() => { setEditingUser(null); setShowCreate(true); }}
-          className="flex items-center gap-2 px-stack-md py-[10px] bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all shadow-md shadow-primary/20 active:scale-95 cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[18px]">person_add</span>
-          New User
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              exportToCSV("users", ["Name", "Email", "Role", "Status", "Created At"],
+                users.map(u => [u.name, u.email, u.is_admin ? "Admin" : "User", u.is_active ? "Active" : "Inactive", u.created_at]));
+            }}
+            className="flex items-center gap-2 px-stack-md py-[10px] border border-outline rounded-lg font-label-md text-on-surface hover:bg-surface-container-high transition-colors active:scale-95 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            Export CSV
+          </button>
+          <button
+            onClick={() => { setEditingUser(null); setShowCreate(true); }}
+            className="flex items-center gap-2 px-stack-md py-[10px] bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all shadow-md shadow-primary/20 active:scale-95 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">person_add</span>
+            New User
+          </button>
+        </div>
       </div>
 
       {error && (

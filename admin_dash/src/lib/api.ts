@@ -90,9 +90,14 @@ export const usersApi = {
 // ─── Admin: Articles ──────────────────────────────────────────────────────────
 
 export const articlesApi = {
-  list: (page = 1, limit = 10) =>
+  list: (page = 1, limit = 10, params: { search?: string; category_id?: string } = {}) =>
     apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").Article> }>(
-      `/admin/articles?page=${page}&limit=${limit}`
+      `/admin/articles?page=${page}&limit=${limit}${params.search ? `&search=${encodeURIComponent(params.search)}` : ""}${params.category_id ? `&category_id=${params.category_id}` : ""}`
+    ),
+
+  get: (id: string) =>
+    apiFetch<{ success: boolean; data: import("./types").Article }>(
+      `/admin/articles/${id}`
     ),
 
   create: (payload: import("./types").ArticleCreate) =>
@@ -112,6 +117,12 @@ export const articlesApi = {
       `/admin/articles/${id}`,
       { method: "DELETE" }
     ),
+
+  togglePin: (id: string) =>
+    apiFetch<{ success: boolean; data: import("./types").Article }>(
+      `/admin/articles/${id}/pin`,
+      { method: "PUT" }
+    ),
 };
 
 // ─── Admin: Analytics ────────────────────────────────────────────────────────
@@ -120,6 +131,11 @@ export const analyticsApi = {
   get: () =>
     apiFetch<{ success: boolean; data: import("./types").Analytics }>(
       "/admin/analytics"
+    ),
+
+  activity: () =>
+    apiFetch<{ success: boolean; data: import("./types").RecentActivity }>(
+      "/admin/activity"
     ),
 };
 

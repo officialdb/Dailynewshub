@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { categoriesApi } from "@/lib/api";
 import type { Category, CategoryCreate } from "@/lib/types";
+import { useToast } from "@/context/ToastContext";
 
 export default function CategoriesPage() {
+  const { toast, confirm } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,34 +91,34 @@ export default function CategoriesPage() {
       setShowForm(false);
       await fetchCategories();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Save failed");
+      toast(err instanceof Error ? err.message : "Save failed", "error");
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete category "${name}"? Articles in this category will become uncategorized.`)) return;
+    if (!await confirm(`Delete category "${name}"? Articles in this category will become uncategorized.`)) return;
     try {
       await categoriesApi.delete(id);
       setCategories(prev => prev.filter(c => c.id !== id));
       setSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      toast(err instanceof Error ? err.message : "Delete failed", "error");
     }
   }
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
     const names = ids.map(id => categories.find(c => c.id === id)?.name ?? "unknown");
-    if (!confirm(`Delete ${ids.length} categories?\n\n${names.join(", ")}\n\nArticles in these categories will become uncategorized.`)) return;
+    if (!await confirm(`Delete ${ids.length} categories?\n\n${names.join(", ")}\n\nArticles in these categories will become uncategorized.`)) return;
     setBulkDeleting(true);
     try {
       await Promise.all(ids.map(id => categoriesApi.delete(id)));
       setCategories(prev => prev.filter(c => !selected.has(c.id)));
       setSelected(new Set());
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Bulk delete failed");
+      toast(err instanceof Error ? err.message : "Bulk delete failed", "error");
     } finally {
       setBulkDeleting(false);
     }

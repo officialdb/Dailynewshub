@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { reelsApi } from "@/lib/api";
 import type { Reel } from "@/lib/types";
+import { useToast } from "@/context/ToastContext";
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -10,7 +11,18 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function getEngagement(reel: Reel): { rate: number; label: string; color: string } {
+  if (reel.view_count === 0) return { rate: 0, label: "0.0%", color: "bg-red-100 text-red-700" };
+  const rate = ((reel.like_count + reel.comment_count) / reel.view_count) * 100;
+  let color: string;
+  if (rate > 5) color = "bg-emerald-100 text-emerald-700";
+  else if (rate >= 2) color = "bg-amber-100 text-amber-700";
+  else color = "bg-red-100 text-red-700";
+  return { rate, label: `${rate.toFixed(1)}%`, color };
+}
+
 export default function ReelsPage() {
+  const { toast, confirm } = useToast();
   const [reels, setReels] = useState<Reel[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -36,13 +48,14 @@ export default function ReelsPage() {
   useEffect(() => { fetchReels(page); }, [page, fetchReels]);
 
   async function handleDelete(id: string, title: string) {
-    if (!confirm(`Delete reel "${title}"? This cannot be undone.`)) return;
+    if (!await confirm(`Delete reel "${title}"? This cannot be undone.`)) return;
     try {
       await reelsApi.delete(id);
       setReels(prev => prev.filter(r => r.id !== id));
       setTotal(t => t - 1);
+      toast("Reel deleted", "success");
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      toast(err instanceof Error ? err.message : "Delete failed", "error");
     }
   }
 
@@ -71,6 +84,7 @@ export default function ReelsPage() {
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Views</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Likes</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Comments</th>
+                <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Engagement</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Duration</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Published</th>
                 <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider text-right">Actions</th>
@@ -85,13 +99,14 @@ export default function ReelsPage() {
                     <td className="px-stack-md py-4"><div className="h-4 w-12 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-8 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-8 bg-outline-variant rounded"></div></td>
+                    <td className="px-stack-md py-4"><div className="h-4 w-12 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-10 bg-outline-variant rounded"></div></td>
                     <td className="px-stack-md py-4"><div className="h-4 w-24 bg-outline-variant rounded"></div></td>
                     <td></td>
                   </tr>
                 ))
               ) : reels.length === 0 ? (
-                <tr><td colSpan={8} className="px-stack-md py-12 text-center text-secondary">No reels found.</td></tr>
+                <tr><td colSpan={9} className="px-stack-md py-12 text-center text-secondary">No reels found.</td></tr>
               ) : (
                 reels.map(reel => (
                   <tr key={reel.id} className="hover:bg-surface-container/40 transition-colors group">
@@ -114,6 +129,16 @@ export default function ReelsPage() {
                     <td className="px-stack-md py-4 text-sm text-on-surface">{reel.view_count.toLocaleString()}</td>
                     <td className="px-stack-md py-4 text-sm text-on-surface">{reel.like_count.toLocaleString()}</td>
                     <td className="px-stack-md py-4 text-sm text-on-surface">{reel.comment_count.toLocaleString()}</td>
+                    <td className="px-stack-md py-4">
+                      {(() => {
+                        const eng = getEngagement(reel);
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${eng.color}`}>
+                            {eng.label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-stack-md py-4 text-sm text-secondary">{formatDuration(reel.duration_seconds)}</td>
                     <td className="px-stack-md py-4 text-sm text-secondary">
                       {reel.published_at ? new Date(reel.published_at).toLocaleDateString() : "—"}

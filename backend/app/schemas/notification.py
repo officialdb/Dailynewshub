@@ -33,6 +33,7 @@ class NotificationResponse(NotificationBase):
 
 class SendNotificationRequest(NotificationBase):
     """Payload used by admin notification broadcast routes."""
+    segment: str = "all"
 
 # --- NEW ADDITION ---
 

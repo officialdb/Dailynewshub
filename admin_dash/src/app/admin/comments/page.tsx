@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { commentsApi } from "@/lib/api";
 import type { Comment } from "@/lib/types";
+import { useToast } from "@/context/ToastContext";
 
 export default function CommentsPage() {
+  const { toast, confirm } = useToast();
   const [comments, setComments] = useState<Comment[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -30,13 +32,13 @@ export default function CommentsPage() {
   useEffect(() => { fetchComments(page); }, [page, fetchComments]);
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this comment? This cannot be undone.")) return;
+    if (!await confirm("Delete this comment? This cannot be undone.")) return;
     try {
       await commentsApi.delete(id);
       setComments(prev => prev.filter(c => c.id !== id));
       setTotal(t => t - 1);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      toast(err instanceof Error ? err.message : "Delete failed", "error");
     }
   }
 

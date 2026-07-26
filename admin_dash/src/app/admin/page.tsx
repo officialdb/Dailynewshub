@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { analyticsApi } from "@/lib/api";
-import type { Analytics } from "@/lib/types";
+import type { Analytics, RecentActivity } from "@/lib/types";
 
 function StatCard({ label, value, icon, trend, color = "primary" }: { label: string; value: string | number; icon: string; trend?: string; color?: string }) {
   const colorMap: Record<string, string> = {
@@ -48,6 +48,7 @@ const quickLinks = [
 
 export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [activity, setActivity] = useState<RecentActivity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
@@ -57,6 +58,9 @@ export default function DashboardPage() {
       .then(res => setAnalytics(res.data))
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
+    analyticsApi.activity()
+      .then(res => setActivity(res.data))
+      .catch(() => {});
   }, []);
 
   const maxCategoryCount = analytics?.articles_per_category?.reduce((max, c) => Math.max(max, c.count), 0) ?? 1;
@@ -153,6 +157,67 @@ export default function DashboardPage() {
                 <span className="text-label-md font-bold text-primary">{item.bookmark_count}</span>
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {activity && (
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[20px] text-primary">person_add</span>
+              <h3 className="font-headline-sm text-headline-sm text-on-surface">New Users</h3>
+            </div>
+            <div className="space-y-2">
+              {activity.recent_users.map(u => (
+                <div key={u.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-container/40 transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold flex-shrink-0">{u.name.slice(0, 2).toUpperCase()}</div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-on-surface truncate">{u.name}</p>
+                    <p className="text-[11px] text-secondary truncate">{new Date(u.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
+              {activity.recent_users.length === 0 && <p className="text-sm text-secondary">No users yet</p>}
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[20px] text-secondary">article</span>
+              <h3 className="font-headline-sm text-headline-sm text-on-surface">Latest Articles</h3>
+            </div>
+            <div className="space-y-2">
+              {activity.recent_articles.map(a => (
+                <div key={a.id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-container/40 transition-colors">
+                  <span className="material-symbols-outlined text-[16px] text-outline mt-0.5 flex-shrink-0">description</span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-on-surface truncate">{a.title}</p>
+                    <p className="text-[11px] text-secondary">{a.source_name ?? "Unknown"} · {new Date(a.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
+              {activity.recent_articles.length === 0 && <p className="text-sm text-secondary">No articles yet</p>}
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[20px] text-tertiary">forum</span>
+              <h3 className="font-headline-sm text-headline-sm text-on-surface">Recent Comments</h3>
+            </div>
+            <div className="space-y-2">
+              {activity.recent_comments.map(c => (
+                <div key={c.id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-container/40 transition-colors">
+                  <span className="material-symbols-outlined text-[16px] text-outline mt-0.5 flex-shrink-0">chat_bubble</span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] text-on-surface truncate">{c.body}</p>
+                    <p className="text-[11px] text-secondary">{c.user_name} · {c.article_title ?? "—"}</p>
+                  </div>
+                </div>
+              ))}
+              {activity.recent_comments.length === 0 && <p className="text-sm text-secondary">No comments yet</p>}
+            </div>
           </div>
         </section>
       )}

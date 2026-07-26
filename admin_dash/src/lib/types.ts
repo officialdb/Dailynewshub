@@ -23,6 +23,7 @@ export interface Article {
   category_id: string;
   is_featured: boolean;
   is_trending: boolean;
+  is_pinned: boolean;
   view_count: number;
   published_at: string | null;
   created_at: string;
@@ -65,6 +66,12 @@ export interface Analytics {
   articles_today?: number;
   articles_per_category?: { category: string; count: number }[];
   most_bookmarked_articles?: { article_id: string; title: string; bookmark_count: number }[];
+}
+
+export interface RecentActivity {
+  recent_users: { id: string; name: string; email: string; created_at: string }[];
+  recent_articles: { id: string; title: string; source_name: string | null; created_at: string }[];
+  recent_comments: { id: string; body: string; article_title: string | null; user_name: string; created_at: string }[];
 }
 
 export interface Category {
@@ -124,6 +131,7 @@ export interface NotificationSend {
   title: string;
   body: string;
   article_id?: string;
+  segment?: string;
 }
 
 export interface NotificationSchedule extends NotificationSend {
@@ -185,5 +193,6 @@ export interface ArticleUpdate {
   category_id?: string;
   is_featured?: boolean;
   is_trending?: boolean;
+  is_pinned?: boolean;
   published_at?: string;
 }

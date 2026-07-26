@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { notificationsApi } from "@/lib/api";
 import type { Notification } from "@/lib/types";
+import { useToast } from "@/context/ToastContext";
 
 type Tab = "history" | "send" | "schedule";
 
@@ -37,6 +38,7 @@ export default function NotificationsPage() {
 }
 
 function HistoryTab() {
+  const { toast, confirm } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -62,13 +64,13 @@ function HistoryTab() {
   useEffect(() => { fetchNotifications(page); }, [page, fetchNotifications]);
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this notification?")) return;
+    if (!await confirm("Delete this notification?")) return;
     try {
       await notificationsApi.delete(id);
       setNotifications(prev => prev.filter(n => n.id !== id));
       setTotal(t => t - 1);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      toast(err instanceof Error ? err.message : "Delete failed", "error");
     }
   }
 
@@ -167,6 +169,7 @@ function SendTab() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [articleId, setArticleId] = useState("");
+  const [segment, setSegment] = useState("all");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -175,10 +178,10 @@ function SendTab() {
     setSending(true);
     setResult(null);
     try {
-      const payload: { title: string; body: string; article_id?: string } = { title, body };
+      const payload: { title: string; body: string; article_id?: string; segment?: string } = { title, body, segment };
       if (articleId.trim()) payload.article_id = articleId.trim();
       const res = await notificationsApi.send(payload);
-      setResult({ success: true, message: `Notification sent to ${res.data.sent_count} devices.` });
+      setResult({ success: true, message: `Notification sent to ${res.data.sent_count} devices (${segment}).` });
       setTitle("");
       setBody("");
       setArticleId("");
@@ -209,12 +212,20 @@ function SendTab() {
             <textarea required value={body} onChange={e => setBody(e.target.value)} rows={3} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all resize-none" placeholder="Notification message..." />
           </div>
           <div>
+            <label className="block text-label-md text-on-surface-variant mb-1.5">Target Audience</label>
+            <select value={segment} onChange={e => setSegment(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all">
+              <option value="all">All Users</option>
+              <option value="active">Active Users Only</option>
+              <option value="admins">Admins Only</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Article ID (optional)</label>
             <input type="text" value={articleId} onChange={e => setArticleId(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Link to article UUID" />
           </div>
           <button type="submit" disabled={sending} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
             <span className="material-symbols-outlined text-[18px]">send</span>
-            {sending ? "Sending..." : "Send to All Users"}
+            {sending ? "Sending..." : `Send to ${segment === "all" ? "All Users" : segment === "active" ? "Active Users" : "Admins"}`}
           </button>
         </form>
       </div>
