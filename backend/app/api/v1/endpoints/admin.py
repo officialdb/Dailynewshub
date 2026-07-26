@@ -36,13 +36,22 @@ def _paginate(items: list[object], total: int, page: int, limit: int) -> dict[st
 async def list_users(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
+    search: str = Query(default="", max_length=200),
     _: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
-    """List users with pagination."""
+    """List users with pagination and optional search by name or email."""
 
-    total = int(await db.scalar(select(func.count(User.id))) or 0)
-    result = await db.execute(select(User).order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit))
+    query = select(User)
+    count_query = select(func.count(User.id))
+
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(User.name.ilike(pattern) | User.email.ilike(pattern))
+        count_query = count_query.where(User.name.ilike(pattern) | User.email.ilike(pattern))
+
+    total = int(await db.scalar(count_query) or 0)
+    result = await db.execute(query.order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit))
     users = [UserResponse.model_validate(user).model_dump(mode="json") for user in result.scalars().all()]
     return {"success": True, "message": "Users retrieved successfully", "data": _paginate(users, total, page, limit)}
 

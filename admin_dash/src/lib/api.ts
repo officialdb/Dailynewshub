@@ -63,9 +63,9 @@ export const authApi = {
 // ─── Admin: Users ─────────────────────────────────────────────────────────────
 
 export const usersApi = {
-  list: (page = 1, limit = 10) =>
+  list: (page = 1, limit = 10, search = "") =>
     apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").User> }>(
-      `/admin/users?page=${page}&limit=${limit}`
+      `/admin/users?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ""}`
     ),
 
   create: (payload: import("./types").UserCreate) =>

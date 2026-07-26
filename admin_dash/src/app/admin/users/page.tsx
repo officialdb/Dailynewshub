@@ -168,16 +168,18 @@ export default function UsersPage() {
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchUsers = useCallback(async (p: number) => {
+  const fetchUsers = useCallback(async (p: number, q: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await usersApi.list(p, 10);
+      const res = await usersApi.list(p, 10, q);
       setUsers(res.data.items);
       setTotal(res.data.total);
       setPages(res.data.pages);
@@ -188,7 +190,17 @@ export default function UsersPage() {
     }
   }, []);
 
-  useEffect(() => { fetchUsers(page); }, [page, fetchUsers]);
+  useEffect(() => { fetchUsers(page, search); }, [page, search, fetchUsers]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== search) {
+        setPage(1);
+        setSearch(searchInput);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   async function handleCreate(data: { name: string; email: string; password: string; is_admin: boolean; is_active: boolean }) {
     setSubmitting(true);
@@ -201,7 +213,7 @@ export default function UsersPage() {
         is_active: data.is_active,
       });
       setShowCreate(false);
-      await fetchUsers(page);
+      await fetchUsers(page, search);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Create failed");
     } finally {
@@ -217,7 +229,7 @@ export default function UsersPage() {
       if (data.password) payload.password = data.password;
       await usersApi.update(editingUser.id, payload);
       setEditingUser(null);
-      await fetchUsers(page);
+      await fetchUsers(page, search);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Update failed");
     } finally {
@@ -266,6 +278,25 @@ export default function UsersPage() {
           <span className="material-symbols-outlined text-[18px]">error</span>{error}
         </div>
       )}
+
+      <div className="relative mb-4 max-w-md">
+        <span className="material-symbols-outlined text-[18px] text-outline absolute left-3 top-1/2 -translate-y-1/2">search</span>
+        <input
+          type="text"
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          placeholder="Search by name or email..."
+          className="w-full pl-10 pr-4 py-2.5 border border-outline-variant rounded-xl bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all"
+        />
+        {searchInput && (
+          <button
+            onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        )}
+      </div>
 
       {showCreate && (
         <UserForm
