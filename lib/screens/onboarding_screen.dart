@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -39,9 +38,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
     } else {
       // Go to Login or Main layout
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+      Navigator.of(context).pushReplacementNamed('/login');
     }
   }
 

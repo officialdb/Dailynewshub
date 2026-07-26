@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'search_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
 import '../providers/auth_provider.dart';
-import 'login_screen.dart';
-import 'edit_profile_screen.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/profile_avatar.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final settingsProvider = Provider.of<SettingsProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -31,27 +28,29 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Text(
               'PROFILE & SETTINGS',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 32),
-            _buildProfileSection(context, authProvider),
+            _buildProfileSection(context, authState),
             const SizedBox(height: 32),
-            _buildPreferencesSection(context, settingsProvider),
+            _buildPreferencesSection(context, ref, settings),
             const SizedBox(height: 32),
-            _buildAccountSection(context, authProvider),
+            _buildAccountSection(context, ref, authState),
             const SizedBox(height: 32),
             Center(
               child: Text(
                 'DAILY NEWS HUB V1.0.0',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2.0,
-                ),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                    ),
               ),
             ),
           ],
@@ -71,12 +70,7 @@ class ProfileScreen extends StatelessWidget {
             color: Theme.of(context).iconTheme.color,
             size: 28,
           ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SearchScreen()),
-            );
-          },
+          onPressed: () => Navigator.pushNamed(context, '/search'),
         ),
         const SizedBox(width: 8),
       ],
@@ -90,7 +84,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileSection(BuildContext context, AuthProvider authProvider) {
+  Widget _buildProfileSection(BuildContext context, AuthState authState) {
     return Card(
       margin: EdgeInsets.zero,
       child: SizedBox(
@@ -100,7 +94,7 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             children: [
               ProfileAvatar(
-                imagePath: authProvider.currentUser?.profileImageUrl,
+                imagePath: authState.user?.profileImageUrl,
                 size: 128,
                 borderWidth: 4,
                 placeholderIcon: Icons.person,
@@ -108,21 +102,23 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                authProvider.isRegistered
-                    ? authProvider.userName.toUpperCase()
+                authState.isRegistered
+                    ? authState.userName.toUpperCase()
                     : 'GUEST USER',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              if (authProvider.isRegistered)
+              if (authState.isRegistered)
                 Text(
-                  'Member since ${authProvider.currentUser?.registeredAt.year ?? ''}',
+                  'Member since ${authState.user?.registeredAt.year ?? ''}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6),
+                      ),
                 ),
               const SizedBox(height: 24),
               OutlinedButton(
@@ -136,19 +132,13 @@ class ProfileScreen extends StatelessWidget {
                     vertical: 12,
                   ),
                 ),
-                onPressed: authProvider.isRegistered
-                    ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const EditProfileScreen(),
-                          ),
-                        );
-                      }
+                onPressed: authState.isRegistered
+                    ? () => Navigator.pushNamed(context, '/edit-profile')
                     : () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Please login to edit your profile'),
+                            content:
+                                Text('Please login to edit your profile'),
                           ),
                         );
                       },
@@ -161,6 +151,40 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              // News Channels link
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.tv_outlined,
+                    color: Theme.of(context).colorScheme.primary),
+                title: const Text('News Channels'),
+                trailing: Icon(Icons.arrow_forward_ios,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    size: 16),
+                onTap: () => Navigator.pushNamed(context, '/channels'),
+              ),
+              // Fun Zone link
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.celebration_outlined,
+                    color: Theme.of(context).colorScheme.primary),
+                title: const Text('Fun Zone'),
+                trailing: Icon(Icons.arrow_forward_ios,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    size: 16),
+                onTap: () => Navigator.pushNamed(context, '/fun'),
+              ),
+              // News Preferences link
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.tune,
+                    color: Theme.of(context).colorScheme.primary),
+                title: const Text('News Preferences'),
+                trailing: Icon(Icons.arrow_forward_ios,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    size: 16),
+                onTap: () => Navigator.pushNamed(context, '/preferences'),
+              ),
             ],
           ),
         ),
@@ -170,8 +194,10 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildPreferencesSection(
     BuildContext context,
-    SettingsProvider settingsProvider,
+    WidgetRef ref,
+    SettingsState settings,
   ) {
+    final notifier = ref.read(settingsProvider.notifier);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -180,12 +206,13 @@ class ProfileScreen extends StatelessWidget {
           child: Text(
             'PREFERENCES',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                ),
           ),
         ),
         Card(
@@ -193,70 +220,81 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             children: [
               SwitchListTile(
-                secondary: Icon(
-                  Icons.notifications,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                secondary: Icon(Icons.notifications,
+                    color: Theme.of(context).colorScheme.primary),
                 title: const Text('Push Notifications'),
-                value: settingsProvider.pushNotifications,
-                onChanged: (val) {
-                  settingsProvider.togglePushNotifications();
-                },
+                value: settings.pushNotifications,
+                onChanged: (_) => notifier.togglePushNotifications(),
               ),
               const Divider(height: 1),
               SwitchListTile(
-                secondary: Icon(
-                  Icons.dark_mode,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                secondary: Icon(Icons.dark_mode,
+                    color: Theme.of(context).colorScheme.primary),
                 title: const Text('Dark Mode'),
-                value: settingsProvider.darkMode,
-                onChanged: (val) {
-                  settingsProvider.toggleDarkMode();
-                },
+                value: settings.darkMode,
+                onChanged: (_) => notifier.toggleDarkMode(),
               ),
               const Divider(height: 1),
               ListTile(
-                leading: Icon(
-                  Icons.language,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                leading: Icon(Icons.language,
+                    color: Theme.of(context).colorScheme.primary),
                 title: const Text('Language'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      settingsProvider.language,
+                      settings.language,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.6),
+                          ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      color: Theme.of(context).colorScheme.primary,
+                    Icon(Icons.chevron_right,
+                        color: Theme.of(context).colorScheme.primary),
+                  ],
+                ),
+                onTap: () => _showLanguageDialog(context, ref),
+              ),
+              const Divider(height: 1),
+              // Font size slider
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Article Font Size',
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    Slider(
+                      value: settings.fontSize,
+                      min: 12,
+                      max: 22,
+                      divisions: 5,
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      inactiveColor:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      label: '${settings.fontSize.round()}px',
+                      onChanged: (val) => notifier.setFontSize(val),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('A',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontSize: 12)),
+                        Text('A',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontSize: 20)),
+                      ],
                     ),
                   ],
                 ),
-                onTap: () {
-                  _showLanguageDialog(context, settingsProvider);
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(
-                  Icons.newspaper,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                title: const Text('News Preferences'),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                onTap: () {
-                  _showPreferencesDialog(context, settingsProvider);
-                },
               ),
             ],
           ),
@@ -265,7 +303,11 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAccountSection(BuildContext context, AuthProvider authProvider) {
+  Widget _buildAccountSection(
+    BuildContext context,
+    WidgetRef ref,
+    AuthState authState,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -274,12 +316,13 @@ class ProfileScreen extends StatelessWidget {
           child: Text(
             'ACCOUNT',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                ),
           ),
         ),
         Card(
@@ -287,15 +330,11 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             children: [
               ListTile(
-                leading: Icon(
-                  Icons.shield,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                leading: Icon(Icons.shield,
+                    color: Theme.of(context).colorScheme.primary),
                 title: const Text('Privacy Policy'),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                trailing: Icon(Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.primary),
                 onTap: () {
                   showDialog(
                     context: context,
@@ -303,7 +342,7 @@ class ProfileScreen extends StatelessWidget {
                       title: const Text('Privacy Policy'),
                       content: const SingleChildScrollView(
                         child: Text(
-                          'Your privacy is important to us. Daily News Hub collects minimal data necessary to provide personalized daily briefings and allow commenting. We do not sell your personal information to third parties.\n\n(Note: This is a placeholder policy. Update with actual legal terms if required.)',
+                          'Your privacy is important to us. Daily News Hub collects minimal data necessary to provide personalized daily briefings and allow commenting. We do not sell your personal information to third parties.',
                         ),
                       ),
                       actions: [
@@ -318,15 +357,11 @@ class ProfileScreen extends StatelessWidget {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: Icon(
-                  Icons.info,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                leading: Icon(Icons.info,
+                    color: Theme.of(context).colorScheme.primary),
                 title: const Text('About Daily News Hub'),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                trailing: Icon(Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.primary),
                 onTap: () {
                   showDialog(
                     context: context,
@@ -334,7 +369,7 @@ class ProfileScreen extends StatelessWidget {
                       title: const Text('About Daily News Hub'),
                       content: const SingleChildScrollView(
                         child: Text(
-                          'Welcome to Daily News Hub, your ultimate destination for breaking global news, deep-dive features, and personalized daily briefings. Engineered with a user-centric philosophy, our application redefines how you consume media in the digital age. We break down the noise of the standard news cycle to bring you what truly matters, exactly when you need it.\n\nKey Features:\n• Daily Briefings: Tailored morning and evening updates curated specifically around your interests.\n• Trending Now: Real-time tracking of viral international stories across science, technology, and global markets.\n• Smart Categorization: Fluid navigation through cleanly segregated sectors like Economy, Business, and Tech.\n• Personalized Archive: A dedicated bookmarking system to save critical reporting for offline reading.',
+                          'Welcome to Daily News Hub, your ultimate destination for breaking global news, deep-dive features, and personalized daily briefings.',
                         ),
                       ),
                       actions: [
@@ -348,43 +383,33 @@ class ProfileScreen extends StatelessWidget {
                 },
               ),
               const Divider(height: 1),
-              if (authProvider.isRegistered)
+              if (authState.isRegistered)
                 ListTile(
-                  leading: Icon(
-                    Icons.logout,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+                  leading: Icon(Icons.logout,
+                      color: Theme.of(context).colorScheme.error),
                   title: Text(
                     'Logout',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                        color: Theme.of(context).colorScheme.error),
                   ),
                   onTap: () {
-                    authProvider.logout();
+                    ref.read(authProvider.notifier).logout();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Logged out successfully')),
+                      const SnackBar(
+                          content: Text('Logged out successfully')),
                     );
                   },
                 )
               else
                 ListTile(
-                  leading: Icon(
-                    Icons.login,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  leading: Icon(Icons.login,
+                      color: Theme.of(context).colorScheme.primary),
                   title: Text(
                     'Login or Register',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                        color: Theme.of(context).colorScheme.primary),
                   ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/login'),
                 ),
             ],
           ),
@@ -393,21 +418,17 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showLanguageDialog(
-    BuildContext context,
-    SettingsProvider settingsProvider,
-  ) {
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) {
-        var selectedLanguage = settingsProvider.language;
-
+      builder: (dialogContext) {
+        var selectedLanguage = ref.read(settingsProvider).language;
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Select Language'),
               content: DropdownButtonFormField<String>(
-                initialValue: selectedLanguage,
+                value: selectedLanguage,
                 items: const ['English', 'Spanish', 'French', 'German']
                     .map(
                       (lang) => DropdownMenuItem<String>(
@@ -417,77 +438,26 @@ class ProfileScreen extends StatelessWidget {
                     )
                     .toList(),
                 onChanged: (val) {
-                  if (val == null) {
-                    return;
-                  }
-                  setState(() {
-                    selectedLanguage = val;
-                  });
+                  if (val == null) return;
+                  setState(() => selectedLanguage = val);
                 },
                 decoration: const InputDecoration(labelText: 'Language'),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await settingsProvider.setLanguage(selectedLanguage);
-                    if (context.mounted) {
-                      Navigator.pop(context);
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .setLanguage(selectedLanguage);
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
                     }
                   },
                   child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showPreferencesDialog(
-    BuildContext context,
-    SettingsProvider settingsProvider,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('News Preferences'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children:
-                      [
-                        'Technology',
-                        'Business',
-                        'Sports',
-                        'Entertainment',
-                        'Health',
-                        'Science',
-                      ].map((pref) {
-                        return CheckboxListTile(
-                          title: Text(pref),
-                          value: settingsProvider.newsPreferences.contains(
-                            pref,
-                          ),
-                          onChanged: (val) {
-                            settingsProvider.toggleNewsPreference(pref);
-                            setState(() {});
-                          },
-                        );
-                      }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
                 ),
               ],
             );

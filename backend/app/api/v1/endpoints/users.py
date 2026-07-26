@@ -259,3 +259,98 @@ async def add_reading_history(
         "data": {"article_id": article_id_str},
     }
 
+
+# ── Comment activity (likes + replies on user's comments) ─────────────
+
+
+@router.get("/me/comment-activity")
+async def comment_activity(
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Return recent likes and replies on the current user's comments.
+
+    Each activity item includes:
+    - type: "like" or "reply"
+    - user_name, user_avatar_url: who performed the action
+    - comment_body: snippet of the original comment
+    - reply_body: (for replies) the reply text
+    - article_id, article_title: for navigation
+    - created_at
+    """
+    from app.models.comment import Comment
+    from app.models.comment_like import CommentLike
+    from app.models.user import User as UserModel
+
+    activities: list[dict] = []
+
+    # 1. Replies to user's comments
+    reply_q = (
+        select(Comment, UserModel.name, UserModel.avatar_url)
+        .join(UserModel, Comment.user_id == UserModel.id)
+        .where(Comment.parent_id.isnot(None))
+        .where(
+            Comment.parent_id.in_(
+                select(Comment.id).where(Comment.user_id == current_user.id)
+            )
+        )
+        .order_by(Comment.created_at.desc())
+        .limit(limit)
+    )
+    reply_result = await db.execute(reply_q)
+    for comment, user_name, avatar_url in reply_result.all():
+        # Get parent comment snippet
+        parent = await db.get(Comment, comment.parent_id)
+        parent_snippet = (parent.body[:80] if parent else "")
+
+        # Get article title
+        article = await db.get(Article, comment.article_id)
+        article_title = article.title if article else ""
+
+        activities.append({
+            "type": "reply",
+            "user_name": user_name,
+            "user_avatar_url": avatar_url,
+            "comment_body": parent_snippet,
+            "reply_body": comment.body[:120],
+            "article_id": str(comment.article_id),
+            "article_title": article_title,
+            "created_at": comment.created_at.isoformat(),
+        })
+
+    # 2. Likes on user's comments
+    like_q = (
+        select(CommentLike, UserModel.name, UserModel.avatar_url, Comment)
+        .join(UserModel, CommentLike.user_id == UserModel.id)
+        .join(Comment, CommentLike.comment_id == Comment.id)
+        .where(Comment.user_id == current_user.id)
+        .where(CommentLike.user_id != current_user.id)  # exclude self-likes
+        .order_by(CommentLike.created_at.desc())
+        .limit(limit)
+    )
+    like_result = await db.execute(like_q)
+    for like, user_name, avatar_url, comment in like_result.all():
+        article = await db.get(Article, comment.article_id)
+        article_title = article.title if article else ""
+
+        activities.append({
+            "type": "like",
+            "user_name": user_name,
+            "user_avatar_url": avatar_url,
+            "comment_body": comment.body[:120],
+            "reply_body": None,
+            "article_id": str(comment.article_id),
+            "article_title": article_title,
+            "created_at": like.created_at.isoformat(),
+        })
+
+    # Sort all activities by date descending
+    activities.sort(key=lambda a: a["created_at"], reverse=True)
+
+    return {
+        "success": True,
+        "message": "Comment activity retrieved",
+        "data": activities[:limit],
+    }
+

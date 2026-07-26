@@ -4,7 +4,7 @@ import 'home_screen.dart';
 import 'saved_articles_screen.dart';
 import 'profile_screen.dart';
 import 'reels_screen.dart';
-import 'channels_screen.dart';
+import 'categories_screen.dart';
 
 class MainLayout extends StatefulWidget {
   final int initialIndex;
@@ -32,7 +32,7 @@ class _MainLayoutState extends State<MainLayout> {
         children: [
           _buildTab(0, const HomeScreen()),
           _buildTab(1, ReelsScreen(isActive: _selectedIndex == 1)),
-          _buildTab(2, const ChannelsScreen()),
+          _buildTab(2, const CategoriesScreen()),
           _buildTab(3, const SavedArticlesScreen()),
           _buildTab(4, const ProfileScreen()),
         ],
@@ -72,7 +72,7 @@ class _MainLayoutState extends State<MainLayout> {
             children: [
               _buildNavItem(context, 0, Icons.home, 'Home'),
               _buildNavItem(context, 1, Icons.video_library, 'Reels'),
-              _buildNavItem(context, 2, Icons.business, 'Channels'),
+              _buildNavItem(context, 2, Icons.grid_view_outlined, 'Categories'),
               _buildNavItem(context, 3, Icons.bookmark, 'Saved'),
               _buildNavItem(context, 4, Icons.person, 'Profile'),
             ],

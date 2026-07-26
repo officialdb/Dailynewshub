@@ -101,6 +101,31 @@ class AuthApiService {
     return _decodeResponse(response);
   }
 
+  Future<void> forgotPassword({required String email}) async {
+    final response = await _client.post(
+      _uri('/auth/forgot-password'),
+      headers: _headers(),
+      body: jsonEncode({'email': email}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _exceptionFromResponse(response);
+    }
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    final response = await _client.post(
+      _uri('/auth/reset-password'),
+      headers: _headers(),
+      body: jsonEncode({'token': token, 'new_password': newPassword}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _exceptionFromResponse(response);
+    }
+  }
+
   Future<AuthSession> refreshToken({required String refreshToken}) async {
     final response = await _client.post(
       _uri('/auth/refresh-token'),

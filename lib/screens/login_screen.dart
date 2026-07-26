@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -33,19 +32,13 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    final authNotifier = ref.read(authProvider.notifier);
+    final success = await authNotifier.login(email, password);
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.login(email, password);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() => _isLoading = false);
+    if (!mounted) return;
 
     if (success) {
-      Navigator.pop(context); // Go back to previous screen
+      Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid email or password')),
@@ -55,6 +48,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(authProvider).isLoading;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -74,18 +69,20 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Text(
               'WELCOME BACK',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             Text(
               'Sign in to comment and manage your profile.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
             ),
             const SizedBox(height: 48),
             _buildTextField(
@@ -101,9 +98,28 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _passwordController,
               label: 'PASSWORD',
               icon: Icons.lock_outline,
-              obscureText: true,
+              obscureText: _obscurePassword,
+              onToggleVisibility: () {
+                setState(() => _obscurePassword = !_obscurePassword);
+              },
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/forgot-password');
+                },
+                child: Text(
+                  'Forgot Password?',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -114,12 +130,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: _isLoading ? null : _login,
-                child: _isLoading
+                onPressed: isLoading ? null : _login,
+                child: isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
                         'LOGIN',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -132,26 +150,24 @@ class _LoginScreenState extends State<LoginScreen> {
             Center(
               child: TextButton(
                 onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                  );
+                  Navigator.pushReplacementNamed(context, '/register');
                 },
                 child: RichText(
                   text: TextSpan(
                     text: "Don't have an account? ",
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                        ),
                     children: [
                       TextSpan(
                         text: 'Sign Up',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ],
                   ),
@@ -171,6 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
     bool obscureText = false,
     TextInputType? keyboardType,
+    VoidCallback? onToggleVisibility,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,12 +195,13 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -196,10 +214,25 @@ class _LoginScreenState extends State<LoginScreen> {
             fillColor: Theme.of(context).inputDecorationTheme.fillColor,
             prefixIcon: Icon(
               icon,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
             ),
+            suffixIcon: onToggleVisibility != null
+                ? IconButton(
+                    icon: Icon(
+                      obscureText
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+                    onPressed: onToggleVisibility,
+                  )
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,

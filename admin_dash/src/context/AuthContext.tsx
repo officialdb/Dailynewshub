@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("admin_user", JSON.stringify(u));
     setToken(tokens.access_token);
     setUser(u);
-    router.push("/");
+    router.push("/admin");
   }, [router]);
 
   const logout = useCallback(async () => {
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("admin_user");
     setToken(null);
     setUser(null);
-    router.push("/login");
+    router.push("/admin/login");
   }, [router]);
 
   return (

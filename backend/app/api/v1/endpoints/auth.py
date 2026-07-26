@@ -1,7 +1,8 @@
 """Authentication routes."""
 
-
-from datetime import datetime, timezone
+import logging
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -13,9 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db
 from app.core.rate_limit import enforce_rate_limit
-from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, verify_token
+from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, verify_token, validate_password_strength
 from app.models.user import User
 from app.schemas.user import RefreshTokenRequest, TokenResponse, UserCreate, UserResponse
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -68,6 +71,7 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
     """Register a new user account."""
 
     await enforce_rate_limit(request, scope="auth:register", limit=10, window_seconds=600)
+    validate_password_strength(user_in.password)
     existing_user = await db.scalar(select(User).where(User.email == user_in.email))
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")

@@ -1,4 +1,4 @@
-"use client";
+import { redirect } from "next/navigation";
 
 import { useEffect, useState, useCallback } from "react";
 import { usersApi } from "@/lib/api";

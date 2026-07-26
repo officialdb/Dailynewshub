@@ -1,27 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'article_detail_screen.dart';
 import '../providers/news_provider.dart';
 import '../models/article.dart';
 import '../widgets/article_image.dart';
 
-class CategoriesScreen extends StatefulWidget {
+class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
 
   @override
-  State<CategoriesScreen> createState() => _CategoriesScreenState();
+  ConsumerState<CategoriesScreen> createState() => _CategoriesScreenState();
 }
 
-class _CategoriesScreenState extends State<CategoriesScreen> {
+class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   String _selectedCategory = 'All';
 
   @override
   Widget build(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context);
-    final categories = ['All', ...newsProvider.categories.map((c) => c.title)];
+    final newsState = ref.watch(newsProvider);
+    final categories = <String>[
+      'All',
+      ...newsState.categories.map((c) => c.title),
+    ];
 
-    List<Article> articles = newsProvider.allArticles;
+    List<Article> articles = newsState.allArticles;
     if (_selectedCategory != 'All') {
       articles = articles
           .where(
@@ -31,20 +33,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
 
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: AppBar(centerTitle: true, title: const Text('Categories')),
       body: Column(
         children: [
           _buildCategoriesHeader(categories),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildContentHeader(context, articles.length),
                   const SizedBox(height: 24),
                   _buildArticleList(context, articles),
-                  const SizedBox(height: 96), // Space for bottom nav
+                  const SizedBox(height: 96),
                 ],
               ),
             ),
@@ -52,10 +55,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ],
       ),
     );
-  }
-
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(centerTitle: true, title: const Text('Categories'));
   }
 
   Widget _buildCategoriesHeader(List<String> categories) {
@@ -67,16 +66,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: categories.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
           itemBuilder: (context, index) {
             final category = categories[index];
             final isSelected = category == _selectedCategory;
             return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedCategory = category;
-                });
-              },
+              onTap: () => setState(() => _selectedCategory = category),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -114,17 +109,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       children: [
         Text(
           _selectedCategory.toUpperCase(),
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
+          style:
+              Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
         ),
         const SizedBox(width: 12),
         Text(
           '$count ARTICLES',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontWeight: FontWeight.bold,
-          ),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
+                fontWeight: FontWeight.bold,
+              ),
         ),
       ],
     );
@@ -143,22 +140,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: articles.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        return _buildArticleCard(context, articles[index]);
-      },
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) =>
+          _buildArticleCard(context, articles[index]),
     );
   }
 
   Widget _buildArticleCard(BuildContext context, Article article) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ArticleDetailScreen(article: article),
-          ),
-        );
+        Navigator.pushNamed(context, '/article', arguments: article);
       },
       child: Card(
         margin: EdgeInsets.zero,
@@ -183,10 +174,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     children: [
                       Text(
                         article.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 16,
-                          height: 1.2,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontSize: 16, height: 1.2),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -196,7 +187,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           Expanded(
                             child: Text(
                               article.source,
-                              style: Theme.of(context).textTheme.bodySmall
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
                                   ?.copyWith(
                                     color: Theme.of(context)
                                         .colorScheme
@@ -209,9 +202,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           ),
                           Text(
                             article.timeAgo,
-                            style: Theme.of(context).textTheme.bodySmall
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
                                 ?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
                                       .withValues(alpha: 0.6),
                                 ),
                           ),

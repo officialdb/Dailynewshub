@@ -1,9 +1,11 @@
-"""Password hashing and JWT token helpers."""
+"""Password hashing, validation, and JWT token helpers."""
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
+from fastapi import HTTPException
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -17,6 +19,17 @@ def get_password_hash(password: str) -> str:
     """Hash a plaintext password."""
 
     return pwd_context.hash(password)
+
+
+def validate_password_strength(password: str) -> None:
+    """Enforce strong password policy. Raises HTTPException on failure."""
+
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(status_code=400, detail="Password must contain an uppercase letter")
+    if not re.search(r"[0-9]", password):
+        raise HTTPException(status_code=400, detail="Password must contain a number")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

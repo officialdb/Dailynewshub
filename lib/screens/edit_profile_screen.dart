@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
-import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/profile_avatar.dart';
 
-class EditProfileScreen extends StatefulWidget {
+class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() => _EditProfileScreenState();
+  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
+class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
   late TextEditingController _emailController;
@@ -24,17 +24,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (!mounted || pickedFile == null) {
-        return;
-      }
-
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+      if (!mounted || pickedFile == null) return;
+      setState(() => _selectedImage = File(pickedFile.path));
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to open image picker')),
       );
@@ -44,9 +37,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
-    _firstNameController = TextEditingController(text: user?.firstName ?? '');
-    _lastNameController = TextEditingController(text: user?.lastName ?? '');
+    final user = ref.read(authProvider).user;
+    _firstNameController =
+        TextEditingController(text: user?.firstName ?? '');
+    _lastNameController =
+        TextEditingController(text: user?.lastName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _passwordController = TextEditingController(text: '');
   }
@@ -67,18 +62,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final password = _passwordController.text;
 
     if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final authNotifier = ref.read(authProvider.notifier);
       var avatarUploadFailed = false;
-      await authProvider.updateProfile(
+      await authNotifier.updateProfile(
         firstName,
         lastName,
         email,
@@ -86,7 +81,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       if (_selectedImage != null) {
         try {
-          await authProvider.updateProfileImage(_selectedImage!.path);
+          await authNotifier.updateProfileImage(_selectedImage!.path);
         } catch (_) {
           avatarUploadFailed = true;
         }
@@ -111,14 +106,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = ref.watch(authProvider).user;
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -150,11 +145,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                     child: ProfileAvatar(
-                      imagePath:
-                          _selectedImage?.path ??
-                          Provider.of<AuthProvider>(
-                            context,
-                          ).currentUser?.profileImageUrl,
+                      imagePath: _selectedImage?.path ??
+                          currentUser?.profileImageUrl,
                       size: 120,
                       placeholderIcon: Icons.person,
                     ),
@@ -235,7 +227,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
                         'SAVE CHANGES',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -264,12 +258,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -282,9 +277,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             fillColor: Theme.of(context).inputDecorationTheme.fillColor,
             prefixIcon: Icon(
               icon,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import admin, articles, auth, bookmarks, categories, health, users, websocket
 
 # --- NEW ADDITION ---
-from app.api.v1.endpoints import reels, channels, comments
+from app.api.v1.endpoints import reels, channels, comments, fun
 
 
 router = APIRouter(prefix="/api/v1")
@@ -25,4 +25,5 @@ router.include_router(websocket.router)
 router.include_router(reels.router)
 router.include_router(channels.router)
 router.include_router(comments.router)
+router.include_router(fun.router)
 
