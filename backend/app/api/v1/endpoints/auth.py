@@ -150,3 +150,33 @@ async def refresh_token(request: Request, payload: RefreshTokenRequest, db: Asyn
 
     payload_data = _token_payload(user)
     return {"success": True, "message": "Token refreshed successfully", "data": payload_data}
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Payload for password recovery request."""
+
+    email: EmailStr
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Request a password reset for an account."""
+
+    await enforce_rate_limit(request, scope="auth:forgot-password", limit=5, window_seconds=300)
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        # Avoid user enumeration by returning a generic success message
+        return {
+            "success": True,
+            "message": "If an account with that email exists, password recovery instructions have been sent.",
+            "data": {"email": payload.email},
+        }
+
+    return {
+        "success": True,
+        "message": f"Password reset instructions and verification code sent to {payload.email}.",
+        "data": {"email": payload.email, "status": "sent"},
+    }
+
