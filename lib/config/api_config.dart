@@ -17,8 +17,7 @@ class ApiConfig {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
       case TargetPlatform.iOS:
-        // Local Wi-Fi IP for physical mobile devices:
-        return 'http://10.188.85.220:8000/api/v1';
+        return 'http://13.63.23.95:8000/api/v1';
       case TargetPlatform.macOS:
         return 'http://localhost:8000/api/v1';
       default:
