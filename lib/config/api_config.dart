@@ -17,12 +17,12 @@ class ApiConfig {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
       case TargetPlatform.iOS:
-        // Default mobile base: deployed backend (use --dart-define to override)
-        return 'http://localhost:8000/api/v1';
+        // Local Wi-Fi IP for physical mobile devices:
+        return 'http://10.188.85.220:8000/api/v1';
       case TargetPlatform.macOS:
-        return 'http://localhost:8001/api/v1';
+        return 'http://localhost:8000/api/v1';
       default:
-        return 'http://127.0.0.1:8001/api/v1';
+        return 'http://127.0.0.1:8000/api/v1';
     }
   }
 }

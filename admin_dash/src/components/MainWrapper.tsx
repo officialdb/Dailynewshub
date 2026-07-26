@@ -7,7 +7,10 @@ export default function MainWrapper({ children }: { children: React.ReactNode })
   const isLogin = pathname === "/admin/login";
 
   return (
-    <main className={isLogin ? "min-h-screen flex flex-col flex-1" : "ml-[280px] pt-16 min-h-screen flex flex-col flex-1"}>
+    <main className={isLogin
+      ? "min-h-screen flex flex-col flex-1"
+      : "ml-0 lg:ml-[280px] pt-14 lg:pt-16 min-h-screen flex flex-col flex-1"
+    }>
       {children}
     </main>
   );

@@ -1,189 +1,465 @@
-import Image from "next/image";
+"use client";
 
-export default function ArticleEditor() {
+import { useEffect, useState, useCallback, FormEvent, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { articlesApi, categoriesApi } from "@/lib/api";
+import type { Category, ArticleCreate } from "@/lib/types";
+import { useToast } from "@/context/ToastContext";
+
+interface FormState {
+  title: string;
+  description: string;
+  content: string;
+  image_url: string;
+  source_name: string;
+  source_url: string;
+  author: string;
+  category_id: string;
+  is_featured: boolean;
+  is_trending: boolean;
+  published_at: string;
+}
+
+const EMPTY_FORM: FormState = {
+  title: "",
+  description: "",
+  content: "",
+  image_url: "",
+  source_name: "",
+  source_url: "",
+  author: "",
+  category_id: "",
+  is_featured: false,
+  is_trending: false,
+  published_at: "",
+};
+
+export default function ArticleEditorPage() {
   return (
-    <div className="flex-1 p-margin">
-      {/* Content Header */}
-      <div className="flex justify-between items-center mb-10">
-        <div>
-          <h2 className="font-headline-lg text-headline-lg text-on-surface mb-1">Edit Article</h2>
-          <p className="text-body-md text-secondary">Draft auto-saved 2 minutes ago</p>
+    <Suspense
+      fallback={
+        <div className="max-w-max-width mx-auto p-4 lg:p-margin w-full">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 w-48 bg-outline-variant rounded" />
+            <div className="grid grid-cols-12 gap-gutter">
+              <div className="col-span-12 lg:col-span-8 space-y-4">
+                <div className="h-64 bg-outline-variant rounded-xl" />
+                <div className="h-96 bg-outline-variant rounded-xl" />
+              </div>
+              <div className="col-span-12 lg:col-span-4 space-y-4">
+                <div className="h-48 bg-outline-variant rounded-xl" />
+                <div className="h-48 bg-outline-variant rounded-xl" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-stack-md">
-          <button className="px-6 py-2.5 rounded-xl border border-outline text-on-surface font-label-md hover:bg-surface-container-high transition-colors cursor-pointer">
-            Save Draft
-          </button>
-          <button className="px-6 py-2.5 rounded-xl bg-primary text-on-primary font-label-md hover:opacity-90 shadow-md transition-all active:scale-95 cursor-pointer">
-            Publish
+      }
+    >
+      <ArticleEditorInner />
+    </Suspense>
+  );
+}
+
+function ArticleEditorInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const articleId = searchParams.get("id");
+  const isEditing = Boolean(articleId);
+
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      setLoading(true);
+      try {
+        const catRes = await categoriesApi.list();
+        if (cancelled) return;
+        setCategories(catRes.data);
+
+        if (articleId) {
+          const artRes = await articlesApi.get(articleId);
+          if (cancelled) return;
+          const a = artRes.data;
+          setForm({
+            title: a.title ?? "",
+            description: a.description ?? "",
+            content: a.content ?? "",
+            image_url: a.image_url ?? "",
+            source_name: a.source_name ?? "",
+            source_url: a.source_url ?? "",
+            author: a.author ?? "",
+            category_id: a.category_id ?? "",
+            is_featured: a.is_featured ?? false,
+            is_trending: a.is_trending ?? false,
+            published_at: a.published_at ? a.published_at.slice(0, 16) : "",
+          });
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          toast(err instanceof Error ? err.message : "Failed to load data", "error");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    init();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articleId]);
+
+  const handleChange = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    if (!form.title.trim()) { toast("Title is required", "error"); return; }
+    if (!form.source_url.trim()) { toast("Source URL is required", "error"); return; }
+    if (!form.category_id) { toast("Please select a category", "error"); return; }
+
+    setSaving(true);
+    try {
+      const payload: ArticleCreate = {
+        title: form.title,
+        description: form.description || undefined,
+        content: form.content || undefined,
+        image_url: form.image_url || undefined,
+        source_name: form.source_name || undefined,
+        source_url: form.source_url,
+        author: form.author || undefined,
+        category_id: form.category_id,
+        is_featured: form.is_featured,
+        is_trending: form.is_trending,
+        published_at: form.published_at ? new Date(form.published_at).toISOString() : undefined,
+      };
+
+      if (isEditing && articleId) {
+        await articlesApi.update(articleId, payload);
+        toast("Article updated successfully", "success");
+      } else {
+        const res = await articlesApi.create(payload);
+        toast("Article created successfully", "success");
+        router.replace(`/admin/articles/edit?id=${res.data.id}`);
+      }
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : "Failed to save article", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-max-width mx-auto p-4 lg:p-margin w-full">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 w-48 bg-outline-variant rounded" />
+          <div className="grid grid-cols-12 gap-gutter">
+            <div className="col-span-12 lg:col-span-8 space-y-4">
+              <div className="h-64 bg-outline-variant rounded-xl" />
+              <div className="h-96 bg-outline-variant rounded-xl" />
+            </div>
+            <div className="col-span-12 lg:col-span-4 space-y-4">
+              <div className="h-48 bg-outline-variant rounded-xl" />
+              <div className="h-48 bg-outline-variant rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const inputCls =
+    "w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all";
+  const labelCls = "block text-label-md text-on-surface-variant mb-2";
+  const smallLabelCls = "block text-label-sm text-on-surface-variant mb-1.5";
+  const cardCls = "bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow";
+
+  return (
+    <div className="max-w-max-width mx-auto p-4 lg:p-margin w-full">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-stack-lg">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/articles"
+            className="p-2 rounded-lg hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors"
+            title="Back to Articles"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+          </Link>
+          <div>
+            <h1 className="font-headline-lg text-headline-lg text-on-surface">
+              {isEditing ? "Edit Article" : "New Article"}
+            </h1>
+            <p className="text-body-md text-secondary">
+              {isEditing ? "Update article details below" : "Fill in the details to create a new article"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/articles"
+            className="px-6 py-2.5 rounded-xl border border-outline text-on-surface font-label-md hover:bg-surface-container-high transition-colors"
+          >
+            Cancel
+          </Link>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="hidden sm:flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-md shadow-primary/20"
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {saving ? "hourglass_empty" : "save"}
+            </span>
+            {saving ? "Saving..." : "Save Article"}
           </button>
         </div>
       </div>
 
-      {/* Bento Grid Layout for Editor */}
-      <div className="grid grid-cols-12 gap-gutter">
-        {/* Main Form Column (8 cols) */}
+      <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-gutter">
+        {/* ── Main Column (8 cols) ───────────────────────────────────────── */}
         <div className="col-span-12 lg:col-span-8 space-y-gutter">
+
           {/* Title & Category Card */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-sm">
-            <div className="space-y-6">
+          <div className={cardCls}>
+            <div className="space-y-5">
               <div>
-                <label className="block text-label-md text-on-surface-variant mb-2">Article Title</label>
-                <input 
-                  type="text" 
-                  className="w-full text-headline-md font-headline-md border border-outline-variant rounded-xl p-4 focus:border-primary focus:ring-1 focus:ring-primary bg-surface-bright outline-none transition-all" 
-                  placeholder="Enter title here..." 
-                  defaultValue="Scaling Microservices in Enterprise Environments" 
+                <label className={labelCls}>
+                  Article Title <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={e => handleChange("title", e.target.value)}
+                  className="w-full text-headline-md font-headline-md border border-outline-variant rounded-xl p-4 focus:border-primary focus:ring-1 focus:ring-primary bg-surface-bright outline-none transition-all"
+                  placeholder="Enter article title..."
+                  required
                 />
               </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-label-md text-on-surface-variant mb-2">Category</label>
-                  <select className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary transition-all outline-none" defaultValue="Architecture">
-                    <option>Engineering</option>
-                    <option>Architecture</option>
-                    <option>Cloud Infrastructure</option>
-                    <option>Product Design</option>
+                  <label className={labelCls}>
+                    Category <span className="text-error">*</span>
+                  </label>
+                  <select
+                    value={form.category_id}
+                    onChange={e => handleChange("category_id", e.target.value)}
+                    className={inputCls}
+                    required
+                  >
+                    <option value="">Select a category...</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-label-md text-on-surface-variant mb-2">Primary Author</label>
-                  <div className="flex items-center gap-2 border border-outline-variant rounded-xl p-3 bg-surface-container-low text-body-md">
-                    <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-xs text-primary">person</span>
-                    </div>
-                    <span>Current User (Admin)</span>
-                  </div>
+                  <label className={labelCls}>Author</label>
+                  <input
+                    type="text"
+                    value={form.author}
+                    onChange={e => handleChange("author", e.target.value)}
+                    className={inputCls}
+                    placeholder="Author name"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Rich Text Editor Simulated Area */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-col min-h-[600px] shadow-sm overflow-hidden">
-            {/* Editor Toolbar */}
-            <div className="flex items-center gap-2 p-3 border-b border-outline-variant bg-surface-container-low">
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">format_bold</span></button>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">format_italic</span></button>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">format_underlined</span></button>
-              <div className="w-px h-6 bg-outline-variant mx-1"></div>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">format_align_left</span></button>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">format_align_center</span></button>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">format_align_right</span></button>
-              <div className="w-px h-6 bg-outline-variant mx-1"></div>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">add_photo_alternate</span></button>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">link</span></button>
-              <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant flex"><span className="material-symbols-outlined text-[20px]">code</span></button>
-              <div className="flex-1"></div>
-              <span className="text-xs text-secondary px-2">1,248 words</span>
+          {/* Description Card */}
+          <div className={cardCls}>
+            <label className={labelCls}>Description / Summary</label>
+            <textarea
+              value={form.description}
+              onChange={e => handleChange("description", e.target.value)}
+              rows={3}
+              className={`${inputCls} resize-y`}
+              placeholder="Brief summary for article listings and search engines..."
+            />
+          </div>
+
+          {/* Content Card */}
+          <div className={cardCls}>
+            <div className="flex items-center justify-between mb-2">
+              <label className={labelCls + " mb-0"}>Content</label>
+              {form.content && (
+                <span className="text-xs text-secondary">
+                  {form.content.split(/\s+/).filter(Boolean).length.toLocaleString()} words
+                </span>
+              )}
             </div>
-            
-            {/* Editor Body */}
-            <div className="p-8 flex-1 overflow-y-auto bg-surface-bright rich-text-shadow">
-              <article className="prose prose-slate max-w-none">
-                <p className="text-body-lg text-on-surface leading-relaxed mb-6">
-                  In the modern digital landscape, the transition from monolithic architectures to microservices has become a standard for organizations seeking scalability, resilience, and accelerated development cycles. However, the complexity of managing these services at an enterprise scale introduces unique challenges...
-                </p>
-                <h3 className="font-headline-md text-headline-md mb-4 text-on-surface">The Foundation of Scalability</h3>
-                <p className="text-body-lg text-on-surface mb-6">
-                  Scalability isn&apos;t just about handling more traffic; it&apos;s about doing so efficiently and without degradation of service quality. In a microservices ecosystem, this involves autonomous scaling of individual components based on real-time demand metrics.
-                </p>
-                <div className="bg-surface-container-high rounded-xl p-6 border-l-4 border-primary mb-6 italic text-on-surface-variant">
-                  &quot;Architecture is the art of making trade-offs. Scaling microservices is the science of managing those trade-offs across distributed networks.&quot;
-                </div>
-                <p className="text-body-lg text-on-surface mb-6">
-                  Consider the implementation of service meshes. These infrastructure layers provide managed, observable, and secure communication between services. Without a robust mesh, observability becomes fragmented, and troubleshooting latency issues across service boundaries becomes a daunting task for DevOps teams.
-                </p>
-                <p className="text-body-lg text-on-surface">Key considerations for architectural success include:</p>
-                <ul className="list-disc ml-6 mt-4 space-y-2 text-body-lg text-on-surface">
-                  <li>Automated service discovery mechanisms.</li>
-                  <li>Circuit breaking patterns to prevent cascading failures.</li>
-                  <li>Distributed tracing for end-to-end request visibility.</li>
-                </ul>
-              </article>
-            </div>
+            <textarea
+              value={form.content}
+              onChange={e => handleChange("content", e.target.value)}
+              rows={20}
+              className={`${inputCls} resize-y font-mono leading-relaxed`}
+              placeholder="Write your article content here..."
+            />
           </div>
         </div>
 
-        {/* Sidebar Settings Column (4 cols) */}
+        {/* ── Sidebar (4 cols) ──────────────────────────────────────────── */}
         <div className="col-span-12 lg:col-span-4 space-y-gutter">
+
+          {/* Source Card */}
+          <div className={cardCls}>
+            <h3 className="text-label-md font-bold text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">link</span>
+              Source
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className={smallLabelCls}>
+                  Source URL <span className="text-error">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={form.source_url}
+                  onChange={e => handleChange("source_url", e.target.value)}
+                  className={inputCls}
+                  placeholder="https://..."
+                  required
+                />
+              </div>
+              <div>
+                <label className={smallLabelCls}>Source Name</label>
+                <input
+                  type="text"
+                  value={form.source_name}
+                  onChange={e => handleChange("source_name", e.target.value)}
+                  className={inputCls}
+                  placeholder="e.g. TechCrunch, Reuters"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Featured Image Card */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-sm">
-            <h4 className="text-label-md font-bold text-on-surface mb-4">Featured Image</h4>
-            <div className="relative group aspect-video bg-surface-container rounded-xl overflow-hidden border-2 border-dashed border-outline-variant flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-all">
-              <Image src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7TINmXz0jvkaQKBZjOxvcUlEFD1Sc39vnM5We6nDrLxk-hlBJjEptQUogH_gGuLrVJjYoQFTUWINFpqX1qDvwHIsVnOQwgVgILHSNQml28BgooLxTnHQzf7rKhj6buAfUkhjd3fO1PYzvlEM0Z6zjAanZh8yG0PX0-6Wkgy4sksrSdcXej7eXYCDTD4xE04h7ugZU6-VhmqxhouWJnP7JYCnIafbdIzmv3iSzmVSFqH6UPjj37LbSqwjIXizyLQY9TlZ9iR-sadLR" alt="Cover" fill className="object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
-              <div className="z-10 text-center bg-surface-container-lowest/90 px-4 py-2 rounded-lg shadow-lg">
-                <span className="material-symbols-outlined text-primary mb-1">cloud_upload</span>
-                <p className="text-xs font-bold text-primary">Replace Image</p>
-              </div>
-            </div>
-            <p className="mt-3 text-[11px] text-secondary text-center">Recommended size: 1200x630px (PNG, JPG)</p>
-          </div>
-
-          {/* SEO Settings Card */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-sm">
-            <h4 className="text-label-md font-bold text-on-surface mb-4">SEO & Metadata</h4>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-1.5">Meta Description</label>
-                <textarea className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md h-24 focus:ring-primary focus:border-primary transition-all outline-none" placeholder="Brief summary for search engines..."></textarea>
-              </div>
-              <div>
-                <label className="block text-label-sm text-on-surface-variant mb-1.5">SEO Tags</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-secondary-container text-on-secondary-container rounded-lg text-[11px] font-bold">
-                    Microservices <button className="hover:text-error cursor-pointer flex"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-secondary-container text-on-secondary-container rounded-lg text-[11px] font-bold">
-                    Enterprise <button className="hover:text-error cursor-pointer flex"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-secondary-container text-on-secondary-container rounded-lg text-[11px] font-bold">
-                    Architecture <button className="hover:text-error cursor-pointer flex"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                  </span>
+          <div className={cardCls}>
+            <h3 className="text-label-md font-bold text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">image</span>
+              Featured Image
+            </h3>
+            <div className="space-y-3">
+              <input
+                type="url"
+                value={form.image_url}
+                onChange={e => handleChange("image_url", e.target.value)}
+                className={inputCls}
+                placeholder="https://example.com/image.jpg"
+              />
+              {form.image_url && (
+                <div className="relative aspect-video bg-surface-container rounded-xl overflow-hidden border border-outline-variant">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.image_url}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
                 </div>
-                <input type="text" className="w-full border border-outline-variant rounded-xl p-2 bg-surface-bright text-sm focus:ring-primary focus:border-primary outline-none" placeholder="Add tag..." />
-              </div>
+              )}
+              <p className="text-[11px] text-secondary text-center">Recommended: 1200×630px (PNG or JPG)</p>
             </div>
           </div>
 
-          {/* Visibility & Status Card */}
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-sm">
-            <h4 className="text-label-md font-bold text-on-surface mb-4">Status & Visibility</h4>
+          {/* Status & Flags Card */}
+          <div className={cardCls}>
+            <h3 className="text-label-md font-bold text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">tune</span>
+              Status & Flags
+            </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-body-md text-on-surface">Public Visibility</span>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary-container transition-colors focus:outline-none cursor-pointer">
-                  <span className="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant">star</span>
+                  <span className="text-body-md text-on-surface">Featured</span>
+                </div>
+                <Toggle checked={form.is_featured} onChange={v => handleChange("is_featured", v)} />
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-body-md text-on-surface">Enable Comments</span>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-outline-variant transition-colors focus:outline-none cursor-pointer">
-                  <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant">trending_up</span>
+                  <span className="text-body-md text-on-surface">Trending</span>
+                </div>
+                <Toggle checked={form.is_trending} onChange={v => handleChange("is_trending", v)} />
               </div>
-              <div className="pt-4 border-t border-outline-variant space-y-3">
-                <div className="flex items-center gap-3 text-secondary">
-                  <span className="material-symbols-outlined text-sm">calendar_today</span>
-                  <span className="text-xs">Schedule: <strong className="text-on-surface">Post immediately</strong></span>
-                </div>
-                <div className="flex items-center gap-3 text-secondary">
-                  <span className="material-symbols-outlined text-sm">language</span>
-                  <span className="text-xs">Slug: <strong className="text-on-surface">/scaling-microservices</strong></span>
-                </div>
+
+              <div className="pt-4 border-t border-outline-variant">
+                <label className={smallLabelCls + " flex items-center gap-1.5"}>
+                  <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                  Publish Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={form.published_at}
+                  onChange={e => handleChange("published_at", e.target.value)}
+                  className={inputCls}
+                />
+                <p className="text-[11px] text-secondary mt-1.5">Leave empty to keep as draft</p>
               </div>
             </div>
           </div>
 
-          {/* Action Panel */}
-          <div className="bg-tertiary-container/10 border border-tertiary-container/20 rounded-xl p-stack-lg">
-            <p className="text-xs text-on-tertiary-fixed-variant mb-4 font-medium">Ready to go live? Your article meets all editorial guidelines.</p>
-            <button className="w-full flex items-center justify-center gap-2 py-3 bg-tertiary-container text-on-tertiary-container font-bold rounded-xl hover:opacity-90 shadow-lg active:scale-95 transition-all cursor-pointer">
-              <span className="material-symbols-outlined">rocket_launch</span>
-              Publish Now
+          {/* Mobile Save Button */}
+          <div className="sm:hidden">
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-on-primary rounded-xl font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-md shadow-primary/20"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {saving ? "hourglass_empty" : "save"}
+              </span>
+              {saving ? "Saving..." : "Save Article"}
             </button>
           </div>
+
+          {/* Back link (mobile) */}
+          <Link
+            href="/admin/articles"
+            className="flex items-center justify-center gap-2 py-3 rounded-xl border border-outline text-on-surface font-label-md hover:bg-surface-container-high transition-colors sm:hidden"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to Articles
+          </Link>
         </div>
-      </div>
+      </form>
     </div>
+  );
+}
+
+// ── Toggle switch component ──────────────────────────────────────────────────
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer ${
+        checked ? "bg-primary-container" : "bg-outline-variant"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }

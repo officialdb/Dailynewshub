@@ -66,6 +66,7 @@ CODEBASE_OVERVIEW.txt
 
 # Common secret file patterns
 firebase-credentials.json
+google-services.json
 *.pem
 *.key
 *.crt
