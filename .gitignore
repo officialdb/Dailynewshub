@@ -75,3 +75,6 @@ firebase-credentials.json
 
 # Dev patch scripts
 patch_*.py
+
+# Built APK files (distributed via GitHub Releases)
+*.apk

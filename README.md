@@ -6,6 +6,32 @@ Daily News Hub is a modern, full-stack news reading application built with Flutt
 
 ---
 
+## 📲 Download the App
+
+Get Daily News Hub on your Android phone:
+
+<p align="center">
+  <a href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk">
+    <img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  </a>
+  <a href="https://github.com/officialdb/Dailynewshub/releases">
+    <img src="https://img.shields.io/github/v/release/officialdb/Dailynewshub?style=for-the-badge&label=Latest%20Release" alt="Latest Release" />
+  </a>
+</p>
+
+> **Android (ARM64):** [Download DailyNewsHub-v1.0.0.apk](https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk) — requires Android 5.0+
+>
+> Visit the [Releases page](https://github.com/officialdb/Dailynewshub/releases) for all versions.
+
+### How to Install
+
+1. Download the APK from the link above
+2. Open the downloaded file on your phone
+3. If prompted, allow installation from unknown sources (*Settings → Security → Allow from this source*)
+4. Tap **Install** and launch the app!
+
+---
+
 ## ✨ Key Features
 
 - **Auto-Scrolling Trending Feed** — A smooth, timer-driven carousel cycling through the top newest and most trending articles.
