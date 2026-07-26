@@ -39,6 +39,12 @@ async function apiFetch<T>(
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
   if (!res.ok) {
+    if (res.status === 401 && authenticated) {
+      clearTokens();
+      localStorage.removeItem("admin_user");
+      window.dispatchEvent(new Event("auth:token-expired"));
+      throw new Error("Session expired — please log in again");
+    }
     const error = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(error?.detail ?? `API error ${res.status}`);
   }

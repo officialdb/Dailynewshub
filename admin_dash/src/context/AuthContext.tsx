@@ -34,6 +34,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
+  // Auto-logout when token expires (401 from any API call)
+  useEffect(() => {
+    function handleTokenExpired() {
+      clearTokens();
+      localStorage.removeItem("admin_user");
+      setToken(null);
+      setUser(null);
+      router.push("/admin/login");
+    }
+    window.addEventListener("auth:token-expired", handleTokenExpired);
+    return () => window.removeEventListener("auth:token-expired", handleTokenExpired);
+  }, [router]);
+
   const login = useCallback(async (email: string, password: string) => {
     const res = await authApi.login(email, password);
     const { user: u, tokens } = res.data;
