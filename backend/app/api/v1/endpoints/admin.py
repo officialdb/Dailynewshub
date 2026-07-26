@@ -16,7 +16,7 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.article import ArticleCreate, ArticleResponse, ArticleUpdate
 from app.schemas.notification import SendNotificationRequest
-from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user import UserCreate, UserResponse, UserUpdate
 from app.services.analytics import get_analytics
 from app.services.push_notification import send_to_all
 from app.websocket.connection_manager import connection_manager
@@ -45,6 +45,40 @@ async def list_users(
     result = await db.execute(select(User).order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit))
     users = [UserResponse.model_validate(user).model_dump(mode="json") for user in result.scalars().all()]
     return {"success": True, "message": "Users retrieved successfully", "data": _paginate(users, total, page, limit)}
+
+
+class AdminUserCreate(UserCreate):
+    """Extended user creation schema for admin — allows setting role and status."""
+    is_admin: bool = False
+    is_active: bool = True
+
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+async def create_user(
+    payload: AdminUserCreate,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Create a new user account as an admin."""
+
+    existing = await db.scalar(select(User).where(User.email == payload.email))
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
+
+    from app.core.security import get_password_hash
+
+    user = User(
+        name=payload.name,
+        email=payload.email,
+        avatar_url=payload.avatar_url,
+        password_hash=get_password_hash(payload.password),
+        is_admin=payload.is_admin,
+        is_active=payload.is_active,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return {"success": True, "message": "User created successfully", "data": UserResponse.model_validate(user).model_dump(mode="json")}
 
 
 @router.put("/users/{user_id}")
@@ -318,8 +352,141 @@ async def schedule_notification(
     await db.refresh(notification)
     
     return {
-        "success": True, 
-        "message": "Notification scheduled successfully", 
+        "success": True,
+        "message": "Notification scheduled successfully",
         "data": {"notification_id": str(notification.id), "scheduled_at": notification.scheduled_at.isoformat()}
     }
+
+
+# --- Admin: Notifications management ---
+
+@router.get("/notifications")
+async def list_notifications(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """List all notifications with pagination."""
+    total = int(await db.scalar(select(func.count(Notification.id))) or 0)
+    result = await db.execute(
+        select(Notification).order_by(Notification.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    )
+    notifications = result.scalars().all()
+    items = []
+    for n in notifications:
+        items.append({
+            "id": str(n.id),
+            "title": n.title,
+            "body": n.body,
+            "article_id": str(n.article_id) if n.article_id else None,
+            "article_title": n.article.title if n.article else None,
+            "sent_at": n.sent_at.isoformat() if n.sent_at else None,
+            "scheduled_at": n.scheduled_at.isoformat() if n.scheduled_at else None,
+            "is_sent": n.is_sent,
+            "created_at": n.created_at.isoformat(),
+        })
+    return {"success": True, "message": "Notifications retrieved successfully", "data": _paginate(items, total, page, limit)}
+
+
+@router.delete("/notifications/{notification_id}")
+async def delete_notification(
+    notification_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Delete a notification."""
+    notification = await db.get(Notification, notification_id)
+    if not notification:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    await db.delete(notification)
+    await db.commit()
+    return {"success": True, "message": "Notification deleted", "data": {"id": str(notification_id)}}
+
+
+# --- Admin: Comments moderation ---
+
+from app.models.comment import Comment
+
+@router.get("/comments")
+async def list_comments(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """List all comments across articles for moderation."""
+    total = int(await db.scalar(select(func.count(Comment.id))) or 0)
+    result = await db.execute(
+        select(Comment).order_by(Comment.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    )
+    comments = result.scalars().all()
+    items = []
+    for c in comments:
+        items.append({
+            "id": str(c.id),
+            "body": c.body,
+            "article_id": str(c.article_id),
+            "article_title": c.article.title if c.article else None,
+            "user_id": str(c.user_id),
+            "user_name": c.user_name,
+            "user_avatar_url": c.user_avatar_url,
+            "parent_id": str(c.parent_id) if c.parent_id else None,
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat(),
+        })
+    return {"success": True, "message": "Comments retrieved successfully", "data": _paginate(items, total, page, limit)}
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Delete a comment (moderation)."""
+    comment = await db.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    await db.delete(comment)
+    await db.commit()
+    return {"success": True, "message": "Comment deleted", "data": {"id": str(comment_id)}}
+
+
+# --- Admin: Categories with article counts ---
+
+@router.get("/categories")
+async def admin_list_categories(
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """List all categories with article counts for admin."""
+    result = await db.execute(
+        select(
+            Category.id,
+            Category.name,
+            Category.slug,
+            Category.icon,
+            Category.created_at,
+            Category.updated_at,
+            func.count(Article.id).label("article_count"),
+        )
+        .outerjoin(Article, Article.category_id == Category.id)
+        .group_by(Category.id)
+        .order_by(Category.name.asc())
+    )
+    rows = result.all()
+    items = [
+        {
+            "id": str(r.id),
+            "name": r.name,
+            "slug": r.slug,
+            "icon": r.icon,
+            "article_count": int(r.article_count),
+            "created_at": r.created_at.isoformat(),
+            "updated_at": r.updated_at.isoformat(),
+        }
+        for r in rows
+    ]
+    return {"success": True, "message": "Categories retrieved successfully", "data": items}
 

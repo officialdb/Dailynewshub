@@ -21,22 +21,38 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 async def list_categories(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, object]:
     """Return all categories without authentication."""
 
-    await enforce_rate_limit(request, scope="categories:list", limit=120, window_seconds=60)
+    try:
+        await enforce_rate_limit(request, scope="categories:list", limit=120, window_seconds=60)
+    except Exception:
+        pass  # non-fatal: rate limiting failure should not block the response
+
     redis_client = getattr(request.app.state, "redis", None)
-    cache_key = await build_versioned_key(redis_client, "categories", "list")
-    cached = await get_json(redis_client, cache_key)
-    if cached is not None:
-        return {"success": True, "message": "Categories retrieved successfully", "data": cached}
+
+    # Attempt to serve from Redis cache; gracefully fall back to DB on any error
+    try:
+        cache_key = await build_versioned_key(redis_client, "categories", "list")
+        cached = await get_json(redis_client, cache_key)
+        if cached is not None:
+            return {"success": True, "message": "Categories retrieved successfully", "data": cached}
+    except Exception:
+        cache_key = None  # skip caching if Redis is unavailable
 
     result = await db.execute(select(Category).order_by(Category.name.asc()))
     categories = result.scalars().all()
     payload = [CategoryResponse.model_validate(category).model_dump(mode="json") for category in categories]
-    await set_json(redis_client, cache_key, payload, ttl_seconds=300)
+
+    try:
+        if cache_key:
+            await set_json(redis_client, cache_key, payload, ttl_seconds=300)
+    except Exception:
+        pass  # caching failure is non-fatal
+
     return {
         "success": True,
         "message": "Categories retrieved successfully",
         "data": payload,
     }
+
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
