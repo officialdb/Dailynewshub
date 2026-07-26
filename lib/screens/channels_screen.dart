@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart' as legacy_provider;
 import '../providers/channels_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/channel.dart';
@@ -18,9 +17,9 @@ class _ChannelsScreenState extends ConsumerState<ChannelsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-      ref.read(followedChannelsProvider.notifier).setToken(auth.currentUser?.accessToken);
-      ref.read(discoverChannelsProvider.notifier).setToken(auth.currentUser?.accessToken);
+      final authState = ref.read(authProvider);
+      ref.read(followedChannelsProvider.notifier).setToken(authState.user?.accessToken);
+      ref.read(discoverChannelsProvider.notifier).setToken(authState.user?.accessToken);
       
       ref.read(followedChannelsProvider.notifier).fetchFollowedChannels();
       ref.read(discoverChannelsProvider.notifier).fetchChannels();

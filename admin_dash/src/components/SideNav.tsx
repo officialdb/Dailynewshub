@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
-  { href: "/", icon: "analytics", label: "Overview" },
-  { href: "/articles", icon: "article", label: "Articles" },
-  { href: "/users", icon: "group", label: "Users" },
+  { href: "/admin", icon: "analytics", label: "Overview" },
+  { href: "/admin/articles", icon: "article", label: "Articles" },
+  { href: "/admin/users", icon: "group", label: "Users" },
 ];
 
 export default function SideNav() {
@@ -15,7 +15,7 @@ export default function SideNav() {
   const { user, logout } = useAuth();
 
   // Don't render sidebar on login page
-  if (pathname === "/login") return null;
+  if (pathname === "/admin/login") return null;
 
   return (
     <aside className="w-[280px] h-full fixed left-0 top-0 bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline flex flex-col py-stack-lg px-stack-md z-50">
@@ -26,7 +26,7 @@ export default function SideNav() {
 
       <nav className="flex-1 space-y-1">
         {navItems.map(item => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

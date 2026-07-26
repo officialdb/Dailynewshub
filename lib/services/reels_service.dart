@@ -42,14 +42,56 @@ class ReelsService {
   }
 
   Future<List<Reel>> getReels({String? token, int skip = 0, int limit = 20}) async {
-    final response = await _client.get(
-      '/reels/',
-      queryParameters: {'skip': skip, 'limit': limit},
+    // Use personalized recommendations when authenticated
+    final hasToken = token != null && token.isNotEmpty;
+    final path = hasToken ? '/reels/recommended' : '/reels/';
+    final params = hasToken
+        ? {'page': (skip ~/ limit) + 1, 'limit': limit}
+        : {'skip': skip, 'limit': limit};
+
+    try {
+      final response = await _client.get(
+        path,
+        queryParameters: params,
+        options: _options(token),
+      );
+      final envelope = response.data['data'];
+      final items = (envelope is Map ? envelope['items'] : envelope) as List;
+      return items
+          .map((json) => Reel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // Fallback to generic feed if personalized fails
+      if (hasToken) {
+        final response = await _client.get(
+          '/reels/',
+          queryParameters: {'skip': skip, 'limit': limit},
+          options: _options(token),
+        );
+        final envelope = response.data['data'];
+        final items = (envelope is Map ? envelope['items'] : envelope) as List;
+        return items
+            .map((json) => Reel.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> recordWatchEvent(
+    String reelId, {
+    required int watchDurationSeconds,
+    required int reelDurationSeconds,
+    String? token,
+  }) async {
+    await _client.post(
+      '/reels/$reelId/watch-event',
+      data: {
+        'watch_duration_seconds': watchDurationSeconds,
+        'reel_duration_seconds': reelDurationSeconds,
+      },
       options: _options(token),
     );
-    final envelope = response.data['data'];
-    final items = (envelope is Map ? envelope['items'] : envelope) as List;
-    return items.map((json) => Reel.fromJson(json as Map<String, dynamic>)).toList();
   }
 
   Future<Reel> getReel(String id, {String? token}) async {

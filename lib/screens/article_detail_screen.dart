@@ -1,25 +1,30 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'search_screen.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import '../widgets/audio_player_sheet.dart';
 import '../models/article.dart';
-import '../providers/news_provider.dart';
 import '../providers/auth_provider.dart';
-import 'login_screen.dart';
+import '../providers/news_provider.dart';
+import '../providers/settings_provider.dart';
 import '../widgets/article_image.dart';
 import '../widgets/profile_avatar.dart';
 
-class ArticleDetailScreen extends StatefulWidget {
+class ArticleDetailScreen extends ConsumerStatefulWidget {
   final Article article;
 
   const ArticleDetailScreen({super.key, required this.article});
 
   @override
-  State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
+  ConsumerState<ArticleDetailScreen> createState() =>
+      _ArticleDetailScreenState();
 }
 
-class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
+class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   final GlobalKey _commentSectionKey = GlobalKey();
   final TextEditingController _commentController = TextEditingController();
 
@@ -27,10 +32,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      context.read<NewsProvider>().loadComments(widget.article.id, force: true);
+      if (!mounted) return;
+      ref
+          .read(newsProvider.notifier)
+          .loadComments(widget.article.id, force: true);
     });
   }
 
@@ -42,9 +47,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context);
-    final isSaved = newsProvider.isSaved(widget.article.id);
-    final commentsLoading = newsProvider.isCommentsLoading(widget.article.id);
+    final newsState = ref.watch(newsProvider);
+    final isSaved = newsState.savedArticleIds.contains(widget.article.id);
+    final commentsLoading =
+        newsState.commentsLoading[widget.article.id] ?? false;
+    final fontSize = ref.watch(settingsProvider).fontSize;
 
     return Scaffold(
       appBar: _buildAppBar(context),
@@ -52,7 +59,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         child: Column(
           children: [
             _buildHeroSection(),
-            _buildContentCard(context, isSaved, newsProvider, commentsLoading),
+            _buildContentCard(
+                context, isSaved, newsState, commentsLoading, fontSize),
           ],
         ),
       ),
@@ -72,18 +80,31 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       ),
       title: const Text('DAILY NEWS HUB'),
       actions: [
+        // Translate button (FIX 7)
+        IconButton(
+          icon: Icon(
+            Icons.translate,
+            color: Theme.of(context).iconTheme.color,
+            size: 24,
+          ),
+          onPressed: () => _showLanguagePicker(context),
+        ),
+        // Listen button (FIX 19)
+        IconButton(
+          icon: Icon(
+            Icons.headphones,
+            color: Theme.of(context).iconTheme.color,
+            size: 24,
+          ),
+          onPressed: () => _listenToArticle(context),
+        ),
         IconButton(
           icon: Icon(
             Icons.search,
             color: Theme.of(context).iconTheme.color,
             size: 28,
           ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SearchScreen()),
-            );
-          },
+          onPressed: () => Navigator.pushNamed(context, '/search'),
         ),
         const SizedBox(width: 8),
       ],
@@ -111,11 +132,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   Widget _buildContentCard(
     BuildContext context,
     bool isSaved,
-    NewsProvider provider,
+    NewsState newsState,
     bool commentsLoading,
+    double fontSize,
   ) {
     return Container(
-      transform: Matrix4.translationValues(0.0, -80.0, 0.0), // -mt-20
+      transform: Matrix4.translationValues(0.0, -80.0, 0.0),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: BoxDecoration(
@@ -123,8 +145,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color:
-                Theme.of(context).cardTheme.shadowColor ??
+            color: Theme.of(context).cardTheme.shadowColor ??
                 Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
@@ -134,9 +155,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tag
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(4),
@@ -152,15 +173,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          // Title
           Text(
             widget.article.title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontSize: 32, height: 1.1),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontSize: 32, height: 1.1),
           ),
           const SizedBox(height: 24),
-          // Meta info
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -169,20 +189,25 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                   children: [
                     Icon(
                       Icons.person,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
                       size: 16,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         widget.article.source,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -195,29 +220,30 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 children: [
                   Icon(
                     Icons.access_time,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
                     size: 16,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     widget.article.timeAgo,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                        ),
                   ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 32),
-          // Divider
           Container(height: 1, color: Theme.of(context).dividerTheme.color),
           const SizedBox(height: 32),
-          // Actions
+          // Actions row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -227,20 +253,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 label: isSaved ? 'SAVED' : 'SAVE',
                 isActive: isSaved,
                 onTap: () async {
-                  final authProvider = Provider.of<AuthProvider>(
-                    context,
-                    listen: false,
-                  );
-                  if (!authProvider.isRegistered) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
+                  final authState = ref.read(authProvider);
+                  if (!authState.isRegistered) {
+                    Navigator.pushNamed(context, '/login');
                     return;
                   }
-
                   final messenger = ScaffoldMessenger.of(context);
-                  final success = await provider.toggleSave(widget.article.id);
+                  final success = await ref
+                      .read(newsProvider.notifier)
+                      .toggleSave(widget.article.id);
                   if (!success && mounted) {
                     messenger.showSnackBar(
                       const SnackBar(
@@ -254,12 +275,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 context,
                 icon: Icons.share_outlined,
                 label: 'SHARE',
-                onTap: () async {
-                  // ignore: deprecated_member_use
-                  await Share.share(
-                    '${widget.article.title}\n\nRead more on Daily News Hub',
-                  );
-                },
+                onTap: () => _shareArticle(widget.article),
               ),
               _buildActionButton(
                 context,
@@ -278,25 +294,239 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             ],
           ),
           const SizedBox(height: 40),
-          // Article text
-          Text(
+          // Article text — SelectableText for highlight-to-share (FIX 10)
+          SelectableText(
             widget.article.displayContent,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.8),
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(height: 1.8, fontSize: fontSize),
+            contextMenuBuilder: (context, editableTextState) {
+              final selection =
+                  editableTextState.textEditingValue.selection;
+              final selectedText = selection.isValid && !selection.isCollapsed
+                  ? editableTextState.textEditingValue.text
+                      .substring(selection.start, selection.end)
+                  : '';
+
+              return AdaptiveTextSelectionToolbar.buttonItems(
+                anchors: editableTextState.contextMenuAnchors,
+                buttonItems: [
+                  ContextMenuButtonItem(
+                    label: 'Copy',
+                    onPressed: () {
+                      editableTextState
+                          .copySelection(SelectionChangedCause.toolbar);
+                      ContextMenuController.removeAny();
+                    },
+                  ),
+                  if (selectedText.isNotEmpty)
+                    ContextMenuButtonItem(
+                      label: 'Share Quote',
+                      onPressed: () {
+                        ContextMenuController.removeAny();
+                        _shareHighlight(selectedText);
+                      },
+                    ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 40),
-          _buildCommentSection(context, provider, commentsLoading),
+          _buildCommentSection(context, newsState, commentsLoading),
         ],
       ),
     );
   }
 
+  // FIX 11: Deep link share
+  void _shareArticle(Article article) {
+    final deepLink = 'https://dailynewshub.app/articles/${article.id}';
+    final sourceUrl = article.sourceUrl ?? deepLink;
+    final shareText =
+        '${article.title}\n\n${article.description ?? ''}\n\nRead full article: $sourceUrl\n\nShared via Daily News Hub';
+    SharePlus.instance.share(ShareParams(text: shareText, subject: article.title));
+  }
+
+  // FIX 10: Share highlighted text
+  void _shareHighlight(String highlight) {
+    final article = widget.article;
+    final shareText =
+        '"$highlight"\n\n— ${article.title}\n\nRead more: ${article.sourceUrl ?? 'https://dailynewshub.app/articles/${article.id}'}';
+    SharePlus.instance.share(ShareParams(text: shareText));
+  }
+
+  // FIX 7: Language translation picker
+  void _showLanguagePicker(BuildContext context) {
+    final languages = {
+      'French': 'fr',
+      'Spanish': 'es',
+      'Arabic': 'ar',
+      'Yoruba': 'yo',
+      'Igbo': 'ig',
+      'Hausa': 'ha',
+      'Portuguese': 'pt',
+      'German': 'de',
+    };
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardTheme.color,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Translate Article',
+              style: GoogleFonts.spaceGrotesk(
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          Divider(
+            color: Theme.of(context).dividerTheme.color,
+            height: 1,
+          ),
+          ...languages.entries.map(
+            (entry) => ListTile(
+              title: Text(
+                entry.key,
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _translateArticle(context, entry.value);
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _translateArticle(
+      BuildContext context, String targetLang) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Translating...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final uri = Uri.parse(
+        '${ApiConfig.baseUrl}/articles/${widget.article.id}/translate?target_lang=$targetLang',
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final translated = data['data'] as Map<String, dynamic>?;
+        if (translated != null && context.mounted) {
+          showDialog(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(
+                translated['title'] ?? widget.article.title,
+                style: const TextStyle(fontSize: 18),
+              ),
+              content: SingleChildScrollView(
+                child: Text(translated['content'] ?? ''),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Translation failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Translation error: $e')),
+        );
+      }
+    }
+  }
+
+  // FIX 19: Listen to article audio
+  Future<void> _listenToArticle(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Generating audio...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final token = ref.read(authProvider).user?.accessToken;
+      final headers = <String, String>{
+        'Accept': 'application/json',
+      };
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final uri = Uri.parse(
+        '${ApiConfig.baseUrl}/articles/${widget.article.id}/audio',
+      );
+      final response = await http.get(uri, headers: headers);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final audioUrl = data['data']?['audio_url']?.toString();
+        if (audioUrl != null && context.mounted) {
+          showAudioPlayer(context, audioUrl, widget.article.title);
+        } else {
+          if (context.mounted) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Audio not available')),
+            );
+          }
+        }
+      } else {
+        if (context.mounted) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Failed to generate audio')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Audio error: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildCommentSection(
     BuildContext context,
-    NewsProvider provider,
+    NewsState newsState,
     bool commentsLoading,
   ) {
-    final comments = provider.getCommentsForArticle(widget.article.id);
-    final authProvider = Provider.of<AuthProvider>(context);
+    final comments = List.from(
+        newsState.comments[widget.article.id] ?? const <dynamic>[]);
+    comments.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final authState = ref.watch(authProvider);
 
     return Column(
       key: _commentSectionKey,
@@ -304,11 +534,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       children: [
         Text(
           'Comments (${comments.length})',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontSize: 24),
         ),
         const SizedBox(height: 24),
-        if (authProvider.isRegistered)
-          _buildCommentInput(context, provider, authProvider.userName)
+        if (authState.isRegistered)
+          _buildCommentInput(context, authState.userName)
         else
           Center(
             child: ElevatedButton(
@@ -319,12 +552,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                   vertical: 12,
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              },
+              onPressed: () => Navigator.pushNamed(context, '/login'),
               child: Text(
                 'Login to Comment',
                 style: GoogleFonts.inter(
@@ -353,7 +581,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -371,7 +601,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Row(
                                 mainAxisAlignment:
@@ -393,7 +624,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                   const SizedBox(width: 12),
                                   Text(
                                     _formatTime(comment.timestamp),
-                                    style: Theme.of(context).textTheme.bodySmall
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
                                         ?.copyWith(
                                           color: Theme.of(context)
                                               .colorScheme
@@ -406,9 +639,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                               const SizedBox(height: 8),
                               Text(
                                 comment.text,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium?.copyWith(height: 1.5),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(height: 1.5),
                               ),
                             ],
                           ),
@@ -425,11 +659,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     );
   }
 
-  Widget _buildCommentInput(
-    BuildContext context,
-    NewsProvider provider,
-    String userName,
-  ) {
+  Widget _buildCommentInput(BuildContext context, String userName) {
     return Row(
       children: [
         Expanded(
@@ -439,10 +669,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             decoration: InputDecoration(
               hintText: 'Add a comment as $userName...',
               hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
               filled: true,
               fillColor: Theme.of(context).inputDecorationTheme.fillColor,
               border: OutlineInputBorder(
@@ -458,18 +689,16 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: Icon(Icons.send, color: Theme.of(context).colorScheme.primary),
+          icon:
+              Icon(Icons.send, color: Theme.of(context).colorScheme.primary),
           onPressed: () async {
             final text = _commentController.text.trim();
             if (text.isNotEmpty) {
               final messenger = ScaffoldMessenger.of(context);
-              final success = await provider.addComment(
-                widget.article.id,
-                text,
-              );
-              if (!mounted) {
-                return;
-              }
+              final success = await ref
+                  .read(newsProvider.notifier)
+                  .addComment(widget.article.id, text);
+              if (!mounted) return;
               if (success) {
                 _commentController.clear();
               } else {
@@ -483,14 +712,13 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         IconButton(
           icon: Icon(
             Icons.logout,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.6),
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.6),
           ),
           tooltip: 'Logout',
-          onPressed: () {
-            Provider.of<AuthProvider>(context, listen: false).logout();
-          },
+          onPressed: () => ref.read(authProvider.notifier).logout(),
         ),
       ],
     );

@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'article_detail_screen.dart';
 import '../providers/news_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
+import '../services/offline_service.dart';
 import '../models/article.dart';
 import '../models/category.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/article_image.dart';
 import '../widgets/skeleton_loader.dart';
-import '../widgets/profile_avatar.dart';
-import 'notifications_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ScrollController _trendingScrollController = ScrollController();
   Timer? _trendingTimer;
   String _selectedCategory = 'All';
@@ -37,14 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startTrendingAutoScroll() {
     _trendingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted || !_trendingScrollController.hasClients) {
-        return;
-      }
+      if (!mounted || !_trendingScrollController.hasClients) return;
 
       final double maxScroll =
           _trendingScrollController.position.maxScrollExtent;
       final double currentScroll = _trendingScrollController.offset;
-      final double cardWidth = 296.0; // 280 width + 16 separator
+      final double cardWidth = 296.0;
 
       if (currentScroll >= maxScroll - 10) {
         _trendingScrollController.animateTo(
@@ -71,14 +67,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    final allCategories = newsProvider.categories;
-    final allArticles = newsProvider.allArticles;
+    final newsState = ref.watch(newsProvider);
+    final authState = ref.watch(authProvider);
+    final notifState = ref.watch(notificationProvider);
 
-    final trendingArticles = newsProvider.trendingArticles;
+    final allCategories = newsState.categories;
+    final allArticles = newsState.allArticles;
+    final trendingArticles = newsState.trendingArticles;
 
-    // Filter articles by selected category
     List<Article> displayArticles = allArticles;
     if (_selectedCategory != 'All') {
       displayArticles = allArticles
@@ -92,33 +88,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       drawer: const AppDrawer(),
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(context, notifState),
       body: RefreshIndicator(
-        onRefresh: () => newsProvider.refreshContent(),
+        onRefresh: () => ref.read(newsProvider.notifier).refreshContent(),
         color: Theme.of(context).colorScheme.primary,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 96),
+          padding: const EdgeInsets.only(
+              left: 16, right: 16, top: 8, bottom: 96),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildGreeting(context, authProvider),
+              _buildGreeting(context, authState),
               const SizedBox(height: 24),
               _buildTrendingSection(
-                context,
-                trendingArticles,
-                newsProvider.isLoading,
-              ),
+                  context, trendingArticles, newsState.isLoading),
               const SizedBox(height: 24),
               _buildCategories(context, allCategories),
               const SizedBox(height: 16),
               _buildArticleList(
                 context,
                 displayArticles,
-                newsProvider.isLoading,
-                newsProvider.hasMoreArticles,
-                newsProvider.isLoadingMoreArticles,
-                newsProvider.loadMoreArticles,
+                newsState.isLoading,
+                newsState.hasMoreArticles,
+                newsState.isLoadingMoreArticles,
               ),
             ],
           ),
@@ -128,9 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _prefetchArticleImages(BuildContext context, List<Article> articles) {
-    if (_prefetchInFlight) {
-      return;
-    }
+    if (_prefetchInFlight) return;
 
     final uniqueUrls = <String>{};
     final urlsToPrefetch = <String>[];
@@ -146,25 +137,18 @@ class _HomeScreenState extends State<HomeScreen> {
           _prefetchedImageUrls.contains(value)) {
         continue;
       }
-
       uniqueUrls.add(value);
       urlsToPrefetch.add(value);
-      if (urlsToPrefetch.length >= 8) {
-        break;
-      }
+      if (urlsToPrefetch.length >= 8) break;
     }
 
-    if (urlsToPrefetch.isEmpty) {
-      return;
-    }
+    if (urlsToPrefetch.isEmpty) return;
 
     _prefetchInFlight = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         for (final url in urlsToPrefetch) {
-          if (!mounted) {
-            return;
-          }
+          if (!mounted) return;
           await precacheImage(CachedNetworkImageProvider(url), context);
           _prefetchedImageUrls.add(url);
         }
@@ -174,7 +158,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(
+      BuildContext context, NotificationState notifState) {
     return AppBar(
       titleSpacing: 0,
       leading: Builder(
@@ -185,102 +170,93 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Theme.of(context).iconTheme.color,
               size: 28,
             ),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
+            onPressed: () => Scaffold.of(context).openDrawer(),
           );
         },
       ),
       title: const Text('DAILY NEWS HUB'),
       actions: [
-        Consumer<NotificationProvider>(
-          builder: (context, notificationProvider, child) {
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.notifications_none,
-                    color: Theme.of(context).iconTheme.color,
-                    size: 26,
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                if (notificationProvider.unreadCount > 0)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          width: 2,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        notificationProvider.unreadCount > 9
-                            ? '9+'
-                            : notificationProvider.unreadCount.toString(),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+        // Search icon
+        IconButton(
+          icon: Icon(
+            Icons.search,
+            color: Theme.of(context).iconTheme.color,
+            size: 26,
+          ),
+          onPressed: () => Navigator.pushNamed(context, '/search'),
+        ),
+        // Notification bell
+        IconButton(
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                Icons.notifications_none,
+                color: Theme.of(context).iconTheme.color,
+                size: 26,
+              ),
+              if (notifState.unreadCount > 0)
+                Positioned(
+                  top: -4,
+                  right: -4,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      notifState.unreadCount > 9
+                          ? '9+'
+                          : notifState.unreadCount.toString(),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
+                          ),
                     ),
                   ),
-              ],
-            );
-          },
+                ),
+            ],
+          ),
+          onPressed: () =>
+              Navigator.pushNamed(context, '/notifications'),
         ),
         const SizedBox(width: 8),
-        Consumer<AuthProvider>(
-          builder: (context, authProvider, child) {
-            return ProfileAvatar(
-              imagePath: authProvider.currentUser?.profileImageUrl,
-              size: 36,
-              placeholderIcon: Icons.person,
-              placeholderIconSize: 20,
-            );
-          },
-        ),
-        const SizedBox(width: 16),
       ],
     );
   }
 
-  Widget _buildGreeting(BuildContext context, AuthProvider authProvider) {
-    final firstName = authProvider.currentUser?.firstName ?? 'User';
+  Widget _buildGreeting(BuildContext context, AuthState authState) {
+    final firstName = authState.user?.firstName ?? 'User';
     final greeting = _greetingLabel(DateTime.now());
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Good $greeting, $firstName 👋',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 28),
+          'Good $greeting, $firstName',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontSize: 28),
         ),
         const SizedBox(height: 4),
         Text(
           'Here is your daily briefing.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
+              ),
         ),
       ],
     );
@@ -288,12 +264,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _greetingLabel(DateTime now) {
     final hour = now.hour;
-    if (hour < 12) {
-      return 'Morning';
-    }
-    if (hour < 18) {
-      return 'Afternoon';
-    }
+    if (hour < 12) return 'Morning';
+    if (hour < 18) return 'Afternoon';
     return 'Evening';
   }
 
@@ -306,17 +278,15 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Row(
           children: [
-            Icon(
-              Icons.local_fire_department,
-              color: Theme.of(context).colorScheme.primary,
-              size: 24,
-            ),
+            Icon(Icons.local_fire_department,
+                color: Theme.of(context).colorScheme.primary, size: 24),
             const SizedBox(width: 8),
             Text(
               'TRENDING NOW',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontSize: 20),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontSize: 20),
             ),
           ],
         ),
@@ -327,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
             controller: _trendingScrollController,
             scrollDirection: Axis.horizontal,
             itemCount: isLoading ? 3 : articles.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
               if (isLoading) return const TrendingSkeletonCard();
               return _buildTrendingCard(context, articles[index]);
@@ -341,12 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTrendingCard(BuildContext context, Article article) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ArticleDetailScreen(article: article),
-          ),
-        );
+        Navigator.pushNamed(context, '/article', arguments: article);
       },
       child: SizedBox(
         width: 280,
@@ -436,24 +401,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCategories(BuildContext context, List<NewsCategory> categories) {
+  Widget _buildCategories(
+      BuildContext context, List<NewsCategory> categories) {
     List<String> displayCat = ['All', ...categories.map((c) => c.title)];
     return SizedBox(
       height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: displayCat.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final isSelected = displayCat[index] == _selectedCategory;
           return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedCategory = displayCat[index];
-              });
-            },
+            onTap: () => setState(() => _selectedCategory = displayCat[index]),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
@@ -467,7 +430,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: isSelected
                         ? Colors.white
                         : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.w500,
                   ),
                 ),
               ),
@@ -484,17 +448,14 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isLoading,
     bool hasMoreArticles,
     bool isLoadingMoreArticles,
-    Future<void> Function() loadMoreArticles,
   ) {
     if (isLoading) {
       return ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 5,
-        separatorBuilder: (context, index) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          return const ListArticleSkeletonCard();
-        },
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (_, __) => const ListArticleSkeletonCard(),
       );
     }
     if (articles.isEmpty) {
@@ -514,11 +475,9 @@ class _HomeScreenState extends State<HomeScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: articles.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            final article = articles[index];
-            return _buildListArticleCard(context, article);
-          },
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          itemBuilder: (context, index) =>
+              _buildListArticleCard(context, articles[index]),
         ),
         if (hasMoreArticles || isLoadingMoreArticles)
           Padding(
@@ -528,7 +487,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: OutlinedButton.icon(
                 onPressed: isLoadingMoreArticles || !hasMoreArticles
                     ? null
-                    : () => loadMoreArticles(),
+                    : () =>
+                        ref.read(newsProvider.notifier).loadMoreArticles(),
                 icon: isLoadingMoreArticles
                     ? const SizedBox(
                         width: 16,
@@ -537,7 +497,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     : const Icon(Icons.expand_more),
                 label: Text(
-                  isLoadingMoreArticles ? 'Loading more' : 'Load more articles',
+                  isLoadingMoreArticles
+                      ? 'Loading more'
+                      : 'Load more articles',
                 ),
               ),
             ),
@@ -549,12 +511,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildListArticleCard(BuildContext context, Article article) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ArticleDetailScreen(article: article),
-          ),
-        );
+        Navigator.pushNamed(context, '/article', arguments: article);
       },
       child: Card(
         margin: EdgeInsets.zero,
@@ -588,22 +545,55 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       Text(
                         article.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 16,
-                          height: 1.2,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontSize: 16, height: 1.2),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        article.source,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              article.source,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              if (OfflineService.isOffline(article.id)) {
+                                await OfflineService.removeArticle(
+                                    article.id);
+                              } else {
+                                await OfflineService.saveArticle(article);
+                              }
+                              setState(() {});
+                            },
+                            child: Icon(
+                              OfflineService.isOffline(article.id)
+                                  ? Icons.download_done
+                                  : Icons.download_outlined,
+                              color: OfflineService.isOffline(article.id)
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.4),
+                              size: 20,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

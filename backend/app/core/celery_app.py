@@ -22,6 +22,10 @@ celery_app.conf.beat_schedule = {
         "task": "daily_news_hub.fetch_and_save_articles",
         "schedule": 900.0,
     },
+    "recompute-reel-recs-every-6-hours": {
+        "task": "daily_news_hub.recompute_reel_recommendations",
+        "schedule": 21600.0,  # 6 hours
+    },
 }
 
 celery_app.conf.update(

@@ -1,61 +1,101 @@
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsProvider with ChangeNotifier {
-  bool _pushNotifications = true;
-  bool _darkMode = false; // default false (Light Theme)
-  String _language = 'English';
-  List<String> _newsPreferences = ['Technology', 'Business', 'Economy'];
+class SettingsState {
+  final bool pushNotifications;
+  final bool darkMode;
+  final String language;
+  final List<String> newsPreferences;
+  final double fontSize;
 
-  bool get pushNotifications => _pushNotifications;
-  bool get darkMode => _darkMode;
-  String get language => _language;
-  List<String> get newsPreferences => _newsPreferences;
+  const SettingsState({
+    this.pushNotifications = true,
+    this.darkMode = false,
+    this.language = 'English',
+    this.newsPreferences = const ['Technology', 'Business', 'Economy'],
+    this.fontSize = 15.0,
+  });
 
-  SettingsProvider() {
+  SettingsState copyWith({
+    bool? pushNotifications,
+    bool? darkMode,
+    String? language,
+    List<String>? newsPreferences,
+    double? fontSize,
+  }) {
+    return SettingsState(
+      pushNotifications: pushNotifications ?? this.pushNotifications,
+      darkMode: darkMode ?? this.darkMode,
+      language: language ?? this.language,
+      newsPreferences: newsPreferences ?? this.newsPreferences,
+      fontSize: fontSize ?? this.fontSize,
+    );
+  }
+}
+
+class SettingsNotifier extends Notifier<SettingsState> {
+  @override
+  SettingsState build() {
     _loadSettings();
+    return const SettingsState();
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    _pushNotifications = prefs.getBool('pushNotifications') ?? true;
-    _darkMode = prefs.getBool('darkMode') ?? false;
-    _language = prefs.getString('language') ?? 'English';
-    _newsPreferences =
-        prefs.getStringList('newsPreferences') ??
-        ['Technology', 'Business', 'Economy'];
-    notifyListeners();
+    state = SettingsState(
+      pushNotifications: prefs.getBool('pushNotifications') ?? true,
+      darkMode: prefs.getBool('darkMode') ?? false,
+      language: prefs.getString('language') ?? 'English',
+      newsPreferences: prefs.getStringList('newsPreferences') ??
+          ['Technology', 'Business', 'Economy'],
+      fontSize: prefs.getDouble('fontSize') ?? 15.0,
+    );
   }
 
   Future<void> togglePushNotifications() async {
-    _pushNotifications = !_pushNotifications;
+    final newValue = !state.pushNotifications;
+    state = state.copyWith(pushNotifications: newValue);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('pushNotifications', _pushNotifications);
-    notifyListeners();
+    await prefs.setBool('pushNotifications', newValue);
   }
 
   Future<void> toggleDarkMode() async {
-    _darkMode = !_darkMode;
+    final newValue = !state.darkMode;
+    state = state.copyWith(darkMode: newValue);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('darkMode', _darkMode);
-    notifyListeners();
+    await prefs.setBool('darkMode', newValue);
   }
 
   Future<void> setLanguage(String lang) async {
-    _language = lang;
+    state = state.copyWith(language: lang);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', _language);
-    notifyListeners();
+    await prefs.setString('language', lang);
   }
 
   Future<void> toggleNewsPreference(String category) async {
-    if (_newsPreferences.contains(category)) {
-      _newsPreferences.remove(category);
+    final current = List<String>.from(state.newsPreferences);
+    if (current.contains(category)) {
+      current.remove(category);
     } else {
-      _newsPreferences.add(category);
+      current.add(category);
     }
+    state = state.copyWith(newsPreferences: current);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('newsPreferences', _newsPreferences);
-    notifyListeners();
+    await prefs.setStringList('newsPreferences', current);
+  }
+
+  Future<void> setNewsPreferences(List<String> preferences) async {
+    state = state.copyWith(newsPreferences: preferences);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('newsPreferences', preferences);
+  }
+
+  Future<void> setFontSize(double size) async {
+    state = state.copyWith(fontSize: size);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('fontSize', size);
   }
 }
+
+final settingsProvider =
+    NotifierProvider<SettingsNotifier, SettingsState>(SettingsNotifier.new);

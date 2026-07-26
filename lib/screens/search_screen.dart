@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'dart:async';
-import 'article_detail_screen.dart';
 import '../providers/news_provider.dart';
 import '../models/article.dart';
 import '../widgets/article_image.dart';
 import '../widgets/skeleton_loader.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final SpeechToText _speech = SpeechToText();
+  bool _isListening = false;
   Timer? _searchDebounce;
 
   final List<String> _recentSearches = [
@@ -45,26 +47,53 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    if (!mounted) {
+  Future<void> _startVoiceSearch() async {
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
       return;
     }
+
+    final available = await _speech.initialize(
+      onError: (_) => setState(() => _isListening = false),
+      onStatus: (status) {
+        if (status == 'done') setState(() => _isListening = false);
+      },
+    );
+
+    if (available) {
+      setState(() => _isListening = true);
+      await _speech.listen(
+        onResult: (result) {
+          _searchController.text = result.recognizedWords;
+          if (result.finalResult) {
+            setState(() => _isListening = false);
+            ref.read(newsProvider.notifier).search(result.recognizedWords);
+          }
+        },
+        listenFor: const Duration(seconds: 10),
+        cancelOnError: true,
+        partialResults: true,
+      );
+    }
+  }
+
+  void _onSearchChanged() {
+    if (!mounted) return;
     _searchDebounce?.cancel();
     final query = _searchController.text;
     _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted) {
-        return;
-      }
-      Provider.of<NewsProvider>(context, listen: false).search(query);
+      if (!mounted) return;
+      ref.read(newsProvider.notifier).search(query);
       setState(() {});
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context);
+    final newsState = ref.watch(newsProvider);
     final isSearching = _searchController.text.isNotEmpty;
-    final searchResults = newsProvider.searchResults;
+    final searchResults = newsState.searchResults;
 
     return Scaffold(
       appBar: _buildAppBar(context),
@@ -81,7 +110,7 @@ class _SearchScreenState extends State<SearchScreen> {
             _buildSearchInput(context),
             const SizedBox(height: 32),
             if (isSearching)
-              _buildSearchResults(searchResults, newsProvider.isLoading)
+              _buildSearchResults(searchResults, newsState.isLoading)
             else ...[
               _buildRecentSearches(context),
               const SizedBox(height: 32),
@@ -132,7 +161,8 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         Text(
           'SEARCH',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 36),
+          style:
+              Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 36),
         ),
         const SizedBox(height: 24),
         Container(
@@ -140,14 +170,16 @@ class _SearchScreenState extends State<SearchScreen> {
             color: Theme.of(context).inputDecorationTheme.fillColor,
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               Icon(
                 Icons.search,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.5),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.5),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -156,11 +188,13 @@ class _SearchScreenState extends State<SearchScreen> {
                   style: Theme.of(context).textTheme.bodyLarge,
                   decoration: InputDecoration(
                     hintText: 'Search articles...',
-                    hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
+                    hintStyle:
+                        Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -174,22 +208,27 @@ class _SearchScreenState extends State<SearchScreen> {
               const SizedBox(width: 12),
               if (_searchController.text.isNotEmpty)
                 GestureDetector(
-                  onTap: () {
-                    _searchController.clear();
-                  },
+                  onTap: () => _searchController.clear(),
                   child: Icon(
                     Icons.close,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
                   ),
                 )
               else
-                Icon(
-                  Icons.mic,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.5),
+                GestureDetector(
+                  onTap: _startVoiceSearch,
+                  child: Icon(
+                    _isListening ? Icons.mic : Icons.mic_none_outlined,
+                    color: _isListening
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5),
+                  ),
                 ),
             ],
           ),
@@ -204,10 +243,8 @@ class _SearchScreenState extends State<SearchScreen> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 5,
-        separatorBuilder: (context, index) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          return const ListArticleSkeletonCard();
-        },
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (_, __) => const ListArticleSkeletonCard(),
       );
     }
     if (results.isEmpty) {
@@ -225,17 +262,12 @@ class _SearchScreenState extends State<SearchScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: results.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final article = results[index];
         return GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ArticleDetailScreen(article: article),
-              ),
-            );
+            Navigator.pushNamed(context, '/article', arguments: article);
           },
           child: Card(
             margin: EdgeInsets.zero,
@@ -272,9 +304,10 @@ class _SearchScreenState extends State<SearchScreen> {
                         const SizedBox(height: 4),
                         Text(
                           article.title,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleLarge?.copyWith(fontSize: 16),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontSize: 16),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -297,7 +330,8 @@ class _SearchScreenState extends State<SearchScreen> {
         Container(
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Theme.of(context).dividerTheme.color!),
+              bottom:
+                  BorderSide(color: Theme.of(context).dividerTheme.color!),
             ),
           ),
           padding: const EdgeInsets.only(bottom: 8),
@@ -308,9 +342,10 @@ class _SearchScreenState extends State<SearchScreen> {
             children: [
               Text(
                 'RECENT SEARCHES',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontSize: 20),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontSize: 20),
               ),
               Text(
                 'CLEAR ALL',
@@ -329,16 +364,15 @@ class _SearchScreenState extends State<SearchScreen> {
           runSpacing: 12,
           children: _recentSearches.map((search) {
             return GestureDetector(
-              onTap: () {
-                _searchController.text = search;
-              },
+              onTap: () => _searchController.text = search,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -346,13 +380,15 @@ class _SearchScreenState extends State<SearchScreen> {
                   children: [
                     Icon(
                       Icons.history,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
                       size: 16,
                     ),
                     const SizedBox(width: 8),
-                    Text(search, style: Theme.of(context).textTheme.bodyMedium),
+                    Text(search,
+                        style: Theme.of(context).textTheme.bodyMedium),
                   ],
                 ),
               ),
@@ -377,9 +413,10 @@ class _SearchScreenState extends State<SearchScreen> {
             const SizedBox(width: 8),
             Text(
               'TRENDING TOPICS',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontSize: 20),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontSize: 20),
             ),
           ],
         ),
@@ -388,22 +425,20 @@ class _SearchScreenState extends State<SearchScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _trendingTopics.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final topic = _trendingTopics[index];
             return GestureDetector(
-              onTap: () {
-                _searchController.text = topic['title'];
-              },
+              onTap: () => _searchController.text = topic['title']!,
               child: Row(
                 children: [
                   Container(
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     alignment: Alignment.center,
@@ -422,17 +457,22 @@ class _SearchScreenState extends State<SearchScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          topic['title'],
-                          style: Theme.of(context).textTheme.titleMedium
+                          topic['title']!,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          topic['articles'],
-                          style: Theme.of(context).textTheme.bodySmall
+                          topic['articles']!,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.6),
                               ),
                         ),
                       ],

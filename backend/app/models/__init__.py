@@ -14,12 +14,15 @@ from app.models.reel import Reel
 from app.models.reel_comment import ReelComment
 from app.models.reel_like import ReelLike
 from app.models.reel_comment_like import ReelCommentLike
+from app.models.reel_watch_event import ReelWatchEvent
+from app.models.comment_like import CommentLike
 
 __all__ = [
     "Article",
     "Bookmark",
     "Category",
     "Comment",
+    "CommentLike",
     "DeviceToken",
     "Notification",
     "User",
@@ -30,4 +33,5 @@ __all__ = [
     "ReelComment",
     "ReelLike",
     "ReelCommentLike",
+    "ReelWatchEvent",
 ]

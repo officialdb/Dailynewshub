@@ -77,15 +77,21 @@ class AppDrawer extends StatelessWidget {
                   ),
                   _buildDrawerItem(
                     context,
+                    icon: Icons.video_library,
+                    title: 'Reels',
+                    onTap: () => _navigateToTab(context, 1),
+                  ),
+                  _buildDrawerItem(
+                    context,
                     icon: Icons.category,
                     title: 'Categories',
-                    onTap: () => _navigateToTab(context, 1),
+                    onTap: () => _navigateToTab(context, 2),
                   ),
                   _buildDrawerItem(
                     context,
                     icon: Icons.bookmark,
                     title: 'Saved Articles',
-                    onTap: () => _navigateToTab(context, 2),
+                    onTap: () => _navigateToTab(context, 3),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -101,7 +107,7 @@ class AppDrawer extends StatelessWidget {
                     context,
                     icon: Icons.settings,
                     title: 'Settings',
-                    onTap: () => _navigateToTab(context, 3),
+                    onTap: () => _navigateToTab(context, 4),
                   ),
                   _buildDrawerItem(
                     context,

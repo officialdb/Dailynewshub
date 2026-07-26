@@ -1,19 +1,45 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user.dart';
 import '../services/auth_api_service.dart';
 
-/// Central auth state backed by the Daily News Hub backend.
-class AuthProvider with ChangeNotifier {
+class AuthState {
+  final User? user;
+  final bool isLoading;
+  final bool isBootstrapping;
+
+  const AuthState({
+    this.user,
+    this.isLoading = false,
+    this.isBootstrapping = true,
+  });
+
+  bool get isRegistered => user != null;
+  String get userName => user?.name ?? '';
+
+  AuthState copyWith({
+    User? user,
+    bool clearUser = false,
+    bool? isLoading,
+    bool? isBootstrapping,
+  }) {
+    return AuthState(
+      user: clearUser ? null : (user ?? this.user),
+      isLoading: isLoading ?? this.isLoading,
+      isBootstrapping: isBootstrapping ?? this.isBootstrapping,
+    );
+  }
+}
+
+class AuthNotifier extends Notifier<AuthState> {
   static const String _accessTokenKey = 'authAccessToken';
   static const String _refreshTokenKey = 'authRefreshToken';
   static const String _legacyCurrentUserKey = 'currentUser';
   static const String _legacyCurrentUserIdKey = 'currentUserId';
   static const String _legacyUsersKey = 'users';
 
-  // Secure encrypted storage for JWT tokens.
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
@@ -21,32 +47,11 @@ class AuthProvider with ChangeNotifier {
 
   final AuthApiService _apiService = AuthApiService();
 
-  bool _isLoading = false;
-  User? _currentUser;
-  bool _isBootstrapping = true;
-
-  /// Indicates whether an auth operation is currently in flight.
-  bool get isLoading => _isLoading;
-
-  /// Whether the current user session exists.
-  bool get isRegistered => _currentUser != null;
-
-  /// Display name for the current user.
-  String get userName => _currentUser?.name ?? '';
-
-  /// The active signed-in user.
-  User? get currentUser => _currentUser;
-
-  /// Cached users list, kept for compatibility with older screens.
-  List<User> get users =>
-      _currentUser == null ? const [] : List.unmodifiable([_currentUser!]);
-
-  /// Whether the provider is restoring an existing backend session.
-  bool get isBootstrapping => _isBootstrapping;
-
-  /// Creates the provider and restores any saved session.
-  AuthProvider() {
-    _restoreSession();
+  @override
+  AuthState build() {
+    // Defer session restore to after build() returns so state is initialized
+    Future.microtask(_restoreSession);
+    return const AuthState();
   }
 
   Future<void> _restoreSession() async {
@@ -55,22 +60,22 @@ class AuthProvider with ChangeNotifier {
 
     if (accessToken != null && accessToken.isNotEmpty) {
       try {
-        final user = await _apiService.getCurrentUser(accessToken: accessToken);
-        _currentUser = user.copyWith(
+        final user = await _apiService.getCurrentUser(
+            accessToken: accessToken);
+        final fullUser = user.copyWith(
           accessToken: accessToken,
           refreshToken: refreshToken,
         );
+        await _saveSession(fullUser,
+            accessToken: accessToken, refreshToken: refreshToken ?? '');
       } catch (_) {
         if (refreshToken != null && refreshToken.isNotEmpty) {
           try {
             final session = await _apiService.refreshToken(
-              refreshToken: refreshToken,
-            );
-            await _saveSession(
-              session.user,
-              accessToken: session.accessToken,
-              refreshToken: session.refreshToken,
-            );
+                refreshToken: refreshToken);
+            await _saveSession(session.user,
+                accessToken: session.accessToken,
+                refreshToken: session.refreshToken);
           } catch (_) {
             await _clearSession();
           }
@@ -81,13 +86,10 @@ class AuthProvider with ChangeNotifier {
     } else if (refreshToken != null && refreshToken.isNotEmpty) {
       try {
         final session = await _apiService.refreshToken(
-          refreshToken: refreshToken,
-        );
-        await _saveSession(
-          session.user,
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-        );
+            refreshToken: refreshToken);
+        await _saveSession(session.user,
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken);
       } catch (_) {
         await _clearSession();
       }
@@ -95,8 +97,7 @@ class AuthProvider with ChangeNotifier {
       await _clearSession();
     }
 
-    _isBootstrapping = false;
-    notifyListeners();
+    state = state.copyWith(isBootstrapping: false);
   }
 
   Future<void> _saveSession(
@@ -106,26 +107,22 @@ class AuthProvider with ChangeNotifier {
   }) async {
     await _secureStorage.write(key: _accessTokenKey, value: accessToken);
     await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
-    _currentUser = user.copyWith(
-      accessToken: accessToken,
-      refreshToken: refreshToken,
+    state = state.copyWith(
+      user: user.copyWith(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      ),
     );
   }
 
   Future<void> _clearSession() async {
     await _secureStorage.delete(key: _accessTokenKey);
     await _secureStorage.delete(key: _refreshTokenKey);
-    // Clean up old plain-text SharedPreferences keys if they exist.
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_legacyCurrentUserKey);
     await prefs.remove(_legacyCurrentUserIdKey);
     await prefs.remove(_legacyUsersKey);
-    _currentUser = null;
-  }
-
-  Future<void> _setLoading(bool value) async {
-    _isLoading = value;
-    notifyListeners();
+    state = state.copyWith(clearUser: true);
   }
 
   Future<bool> register(
@@ -134,7 +131,7 @@ class AuthProvider with ChangeNotifier {
     String email,
     String password,
   ) async {
-    await _setLoading(true);
+    state = state.copyWith(isLoading: true);
     try {
       final session = await _apiService.register(
         name: '$firstName $lastName'.trim(),
@@ -145,43 +142,38 @@ class AuthProvider with ChangeNotifier {
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
       );
-      await _saveSession(
-        user,
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-      );
-      notifyListeners();
+      await _saveSession(user,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken);
       return true;
     } on AuthApiException {
       return false;
     } catch (_) {
       return false;
     } finally {
-      await _setLoading(false);
+      state = state.copyWith(isLoading: false);
     }
   }
 
   Future<bool> login(String email, String password) async {
-    await _setLoading(true);
+    state = state.copyWith(isLoading: true);
     try {
-      final session = await _apiService.login(email: email, password: password);
+      final session =
+          await _apiService.login(email: email, password: password);
       final user = session.user.copyWith(
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
       );
-      await _saveSession(
-        user,
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-      );
-      notifyListeners();
+      await _saveSession(user,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken);
       return true;
     } on AuthApiException {
       return false;
     } catch (_) {
       return false;
     } finally {
-      await _setLoading(false);
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -191,73 +183,68 @@ class AuthProvider with ChangeNotifier {
     String email, {
     String? password,
   }) async {
-    if (_currentUser == null) {
-      return;
-    }
+    final currentUser = state.user;
+    if (currentUser == null) return;
 
-    final accessToken = _currentUser!.accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      return;
-    }
+    final accessToken = currentUser.accessToken;
+    if (accessToken == null || accessToken.isEmpty) return;
 
-    await _setLoading(true);
+    state = state.copyWith(isLoading: true);
     try {
       final updatedUser = await _apiService.updateProfile(
         accessToken: accessToken,
         name: '$firstName $lastName'.trim(),
         email: email,
         password: password,
-        avatarUrl: _currentUser!.profileImageUrl,
+        avatarUrl: currentUser.profileImageUrl,
       );
       final mergedUser = updatedUser.copyWith(
-        accessToken: _currentUser!.accessToken,
-        refreshToken: _currentUser!.refreshToken,
-        profileImageUrl: _currentUser!.profileImageUrl,
+        accessToken: currentUser.accessToken,
+        refreshToken: currentUser.refreshToken,
+        profileImageUrl: currentUser.profileImageUrl,
       );
-      await _saveSession(
-        mergedUser,
-        accessToken: accessToken,
-        refreshToken: _currentUser!.refreshToken ?? '',
-      );
-      notifyListeners();
+      await _saveSession(mergedUser,
+          accessToken: accessToken,
+          refreshToken: currentUser.refreshToken ?? '');
     } finally {
-      await _setLoading(false);
+      state = state.copyWith(isLoading: false);
     }
   }
 
   Future<void> updateProfileImage(String imagePath) async {
-    if (_currentUser == null) {
-      return;
-    }
+    final currentUser = state.user;
+    if (currentUser == null) return;
 
-    final accessToken = _currentUser!.accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      return;
-    }
+    final accessToken = currentUser.accessToken;
+    if (accessToken == null || accessToken.isEmpty) return;
 
     final updatedUser = await _apiService.uploadAvatar(
       accessToken: accessToken,
       imagePath: imagePath,
     );
-    await _saveSession(
-      updatedUser,
-      accessToken: accessToken,
-      refreshToken: _currentUser!.refreshToken ?? '',
-    );
-    notifyListeners();
+    await _saveSession(updatedUser,
+        accessToken: accessToken,
+        refreshToken: currentUser.refreshToken ?? '');
   }
 
   Future<void> logout() async {
-    if (_currentUser?.accessToken != null &&
-        _currentUser!.accessToken!.isNotEmpty) {
+    final token = state.user?.accessToken;
+    if (token != null && token.isNotEmpty) {
       try {
-        await _apiService.logout(accessToken: _currentUser!.accessToken!);
-      } catch (_) {
-        // Clear local state even if the backend logout request fails.
-      }
+        await _apiService.logout(accessToken: token);
+      } catch (_) {}
     }
-
     await _clearSession();
-    notifyListeners();
+  }
+
+  Future<void> forgotPassword(String email) async {
+    await _apiService.forgotPassword(email: email);
   }
 }
+
+final authProvider =
+    NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+
+final currentUserProvider = Provider<User?>((ref) {
+  return ref.watch(authProvider).user;
+});

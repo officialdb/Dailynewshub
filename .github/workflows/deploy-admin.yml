@@ -33,13 +33,10 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Pull Vercel project settings
-        working-directory: admin_dash
         run: vercel pull --yes --environment=production
 
       - name: Build project
-        working-directory: admin_dash
         run: vercel build --prod
 
       - name: Deploy to Vercel (Production)
-        working-directory: admin_dash
         run: vercel deploy --prebuilt --prod

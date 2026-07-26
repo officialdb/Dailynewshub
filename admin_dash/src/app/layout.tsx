@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import SideNav from "@/components/SideNav";
-import TopNav from "@/components/TopNav";
 import { AuthProvider } from "@/context/AuthContext";
-import MainWrapper from "@/components/MainWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,12 +23,11 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
       </head>
       <body className="min-h-full flex flex-col bg-surface text-on-surface">
         <AuthProvider>
-          <SideNav />
-          <TopNav />
-          <MainWrapper>{children}</MainWrapper>
+          {children}
         </AuthProvider>
       </body>
     </html>

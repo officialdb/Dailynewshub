@@ -1,7 +1,8 @@
 """Authentication routes."""
 
-
-from datetime import datetime, timezone
+import logging
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -13,9 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db
 from app.core.rate_limit import enforce_rate_limit
-from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, verify_token
+from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, verify_token, validate_password_strength
 from app.models.user import User
 from app.schemas.user import RefreshTokenRequest, TokenResponse, UserCreate, UserResponse
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -68,6 +71,7 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
     """Register a new user account."""
 
     await enforce_rate_limit(request, scope="auth:register", limit=10, window_seconds=600)
+    validate_password_strength(user_in.password)
     existing_user = await db.scalar(select(User).where(User.email == user_in.email))
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
@@ -150,3 +154,102 @@ async def refresh_token(request: Request, payload: RefreshTokenRequest, db: Asyn
 
     payload_data = _token_payload(user)
     return {"success": True, "message": "Token refreshed successfully", "data": payload_data}
+
+
+# --- FIX 1: Forgot Password ---
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Payload for requesting a password reset."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Payload for resetting a password with a token."""
+
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=255)
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: Request,
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Generate a password reset token and log it for testing."""
+
+    await enforce_rate_limit(request, scope="auth:forgot", limit=5, window_seconds=600)
+
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+
+    success_msg = "If this email exists, a reset link has been sent."
+
+    if not user:
+        return {"success": True, "message": success_msg}
+
+    token = secrets.token_urlsafe(32)
+
+    redis_client = getattr(request.app.state, "redis", None)
+    if redis_client is not None:
+        await redis_client.setex(f"reset_token:{token}", 1800, str(user.id))
+
+    logger.info("Password reset token for %s: %s", payload.email, token)
+
+    return {
+        "success": True,
+        "message": success_msg,
+        "debug_token": token,
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: Request,
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Verify reset token and update user password."""
+
+    await enforce_rate_limit(request, scope="auth:reset", limit=10, window_seconds=600)
+
+    validate_password_strength(payload.new_password)
+
+    redis_client = getattr(request.app.state, "redis", None)
+    if redis_client is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Redis is not available",
+        )
+
+    user_id_str = await redis_client.get(f"reset_token:{payload.token}")
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    try:
+        user_id = UUID(str(user_id_str))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    user.password_hash = get_password_hash(payload.new_password)
+    await db.commit()
+
+    await redis_client.delete(f"reset_token:{payload.token}")
+
+    return {"success": True, "message": "Password reset successfully"}

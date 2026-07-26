@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart' as legacy_provider;
-
 import '../models/reel_comment.dart';
 import '../services/reels_service.dart';
 import '../providers/auth_provider.dart';
@@ -98,7 +96,7 @@ Future<void> showTikTokComments(BuildContext context, String reelId) {
     barrierColor: Colors.black.withOpacity(0.5),
     builder: (context) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: ProviderScope(child: _CommentsSheet(reelId: reelId)),
+      child: _CommentsSheet(reelId: reelId),
     ),
   );
 }
@@ -143,8 +141,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSubmitting) return;
 
-    final auth = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-    if (!auth.isRegistered) {
+    final authState = ref.read(authProvider);
+    if (!authState.isRegistered) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please log in to comment'),
@@ -544,8 +542,8 @@ class _LikeButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () {
-        final auth = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-        if (!auth.isRegistered) {
+        final authState = ref.read(authProvider);
+        if (!authState.isRegistered) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Please log in to like comments'),
