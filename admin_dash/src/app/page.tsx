@@ -151,8 +151,8 @@ export default function LandingPage() {
           const mapped: DisplayNews[] = response.data.items.map((art) => ({
             id: art.id,
             title: art.title,
-            category: art.category ?? "General",
-            summary: art.summary || art.content?.slice(0, 140) + "...",
+            category: art.source_name ?? "General",
+            summary: art.description || art.content?.slice(0, 140) + "...",
             author: art.author || "Editorial Staff",
             timeAgo: art.published_at ? new Date(art.published_at).toLocaleDateString() : "Recently",
             views: `${(art.view_count ?? 1200).toLocaleString()} views`,
