@@ -156,100 +156,31 @@ async def refresh_token(request: Request, payload: RefreshTokenRequest, db: Asyn
     return {"success": True, "message": "Token refreshed successfully", "data": payload_data}
 
 
-# --- FIX 1: Forgot Password ---
-
-
 class ForgotPasswordRequest(BaseModel):
-    """Payload for requesting a password reset."""
+    """Payload for password recovery request."""
 
     email: EmailStr
 
 
-class ResetPasswordRequest(BaseModel):
-    """Payload for resetting a password with a token."""
-
-    token: str = Field(min_length=1)
-    new_password: str = Field(min_length=8, max_length=255)
-
-
 @router.post("/forgot-password")
-async def forgot_password(
-    request: Request,
-    payload: ForgotPasswordRequest,
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """Generate a password reset token and log it for testing."""
+async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Request a password reset for an account."""
 
-    await enforce_rate_limit(request, scope="auth:forgot", limit=5, window_seconds=600)
-
+    await enforce_rate_limit(request, scope="auth:forgot-password", limit=5, window_seconds=300)
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
 
-    success_msg = "If this email exists, a reset link has been sent."
-
-    if not user:
-        return {"success": True, "message": success_msg}
-
-    token = secrets.token_urlsafe(32)
-
-    redis_client = getattr(request.app.state, "redis", None)
-    if redis_client is not None:
-        await redis_client.setex(f"reset_token:{token}", 1800, str(user.id))
-
-    logger.info("Password reset token for %s: %s", payload.email, token)
+    if user is None:
+        # Avoid user enumeration by returning a generic success message
+        return {
+            "success": True,
+            "message": "If an account with that email exists, password recovery instructions have been sent.",
+            "data": {"email": payload.email},
+        }
 
     return {
         "success": True,
-        "message": success_msg,
-        "debug_token": token,
+        "message": f"Password reset instructions and verification code sent to {payload.email}.",
+        "data": {"email": payload.email, "status": "sent"},
     }
 
-
-@router.post("/reset-password")
-async def reset_password(
-    request: Request,
-    payload: ResetPasswordRequest,
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """Verify reset token and update user password."""
-
-    await enforce_rate_limit(request, scope="auth:reset", limit=10, window_seconds=600)
-
-    validate_password_strength(payload.new_password)
-
-    redis_client = getattr(request.app.state, "redis", None)
-    if redis_client is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Redis is not available",
-        )
-
-    user_id_str = await redis_client.get(f"reset_token:{payload.token}")
-    if not user_id_str:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token",
-        )
-
-    try:
-        user_id = UUID(str(user_id_str))
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid reset token",
-        )
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    user.password_hash = get_password_hash(payload.new_password)
-    await db.commit()
-
-    await redis_client.delete(f"reset_token:{payload.token}")
-
-    return {"success": True, "message": "Password reset successfully"}

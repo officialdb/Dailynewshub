@@ -29,20 +29,21 @@ services:
       retries: 5
 
   backend:
-    image: ${BACKEND_IMAGE}
+    image: ${IMAGE_NAME:-dailynewshub-backend}:latest
     ports:
       - "8000:8000"
+    env_file:
+      - .env.docker
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dailynewshub}
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/dailynewshub
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      SECRET_KEY: change-this-in-production
       FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
       UPLOADS_DIR: uploads
       DEBUG: "False"
-    env_file:
-      - .env.docker
+      ALLOWED_ORIGINS: "*"
     volumes:
       - uploads-data:/app/uploads
     depends_on:
@@ -53,19 +54,19 @@ services:
     restart: unless-stopped
 
   celery-worker:
-    image: ${BACKEND_IMAGE}
+    image: ${IMAGE_NAME:-dailynewshub-backend}:latest
     command: celery -A app.core.celery_app worker --loglevel=info
+    env_file:
+      - .env.docker
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dailynewshub}
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/dailynewshub
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      SECRET_KEY: change-this-in-production
       FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
       UPLOADS_DIR: uploads
       DEBUG: "False"
-    env_file:
-      - .env.docker
     depends_on:
       db:
         condition: service_healthy
@@ -74,19 +75,19 @@ services:
     restart: unless-stopped
 
   celery-beat:
-    image: ${BACKEND_IMAGE}
+    image: ${IMAGE_NAME:-dailynewshub-backend}:latest
     command: celery -A app.core.celery_app beat --loglevel=info --schedule=/var/lib/celery/celerybeat-schedule
+    env_file:
+      - .env.docker
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dailynewshub}
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/dailynewshub
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      SECRET_KEY: change-this-in-production
       FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
       UPLOADS_DIR: uploads
       DEBUG: "False"
-    env_file:
-      - .env.docker
     volumes:
       - celery-beat-data:/var/lib/celery
     depends_on:
