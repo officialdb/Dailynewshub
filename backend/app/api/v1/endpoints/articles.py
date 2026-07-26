@@ -18,6 +18,7 @@ from app.models.user import User
 from app.schemas.article import ArticleResponse, PaginatedArticleResponse
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.category import CategoryResponse
+from app.services.recommender import rank_articles_for_user
 
 
 router = APIRouter(prefix="/articles", tags=["articles"])
@@ -58,6 +59,52 @@ async def _get_category_by_slug(request: Request, db: AsyncSession, slug: str) -
     payload = CategoryResponse.model_validate(category).model_dump(mode="json")
     await set_json(redis_client, cache_key, payload, ttl_seconds=300)
     return payload
+
+
+@router.get("/personalized")
+async def personalized_articles(
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Return articles ranked by the user's preference profile.
+
+    Scores articles based on:
+    - Category preferences (selected during onboarding)
+    - Followed channels
+    - Reading history categories
+    - Bookmarked article categories
+    - Trending/featured/pinned bonuses
+    - Popularity (view count)
+    - Recency
+    """
+
+    await enforce_rate_limit(request, scope="articles:personalized", limit=120, window_seconds=60)
+
+    # Fetch a wider pool of articles for ranking
+    pool_size = max(limit * 3, 50)
+    result = await db.execute(
+        select(Article)
+        .options(selectinload(Article.category))
+        .order_by(Article.is_trending.desc(), Article.published_at.desc().nullslast(), Article.created_at.desc())
+        .limit(pool_size)
+    )
+    pool = list(result.scalars().all())
+
+    # Rank by user preferences
+    ranked = await rank_articles_for_user(pool, current_user, db)
+
+    total = int(await db.scalar(select(func.count(Article.id))) or 0)
+
+    # Paginate the ranked results
+    start = (page - 1) * limit
+    end = start + limit
+    page_articles = ranked[start:end]
+
+    payload = _paginate_articles(page_articles, total, page, limit)
+    return {"success": True, "message": "Personalized articles retrieved", "data": payload}
 
 
 @router.get("")
@@ -378,4 +425,56 @@ async def create_share_card(id: UUID, request: Request, db: AsyncSession = Depen
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate share card")
         
     return {"success": True, "message": "Share card generated", "data": ShareCardResponse(share_card_url=share_url).model_dump(mode="json")}
+
+
+# --- FIX 7: Translation using Groq ---
+
+
+@router.get("/{id}/translate")
+async def translate_article(
+    id: UUID,
+    target_lang: str = Query(..., description="Target language code e.g. fr, es, ar, yo, ig, ha, pt"),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Translate article title and content using Groq AI."""
+    article = await db.get(Article, id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+
+    from app.services.ai_summarizer import call_groq
+    import json as json_mod
+
+    lang_names = {
+        "fr": "French", "es": "Spanish", "ar": "Arabic",
+        "yo": "Yoruba", "ig": "Igbo", "ha": "Hausa",
+        "pt": "Portuguese", "de": "German", "zh": "Chinese",
+    }
+    lang_name = lang_names.get(target_lang, target_lang)
+
+    prompt = (
+        f"Translate the following article title and content to {lang_name}. "
+        "Return ONLY a valid JSON object with exactly two keys: "
+        '"title" (translated title) and "content" (translated content). '
+        "Do not include markdown or extra text.\n\n"
+        f"Title: {article.title}\n"
+        f"Content: {(article.content or '')[:3000]}"
+    )
+
+    try:
+        response = await call_groq(prompt)
+        translated = json_mod.loads(response)
+        return {
+            "success": True,
+            "message": "Article translated",
+            "data": {
+                "title": translated.get("title", article.title),
+                "content": translated.get("content", article.content),
+                "target_lang": target_lang,
+            },
+        }
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Translation failed",
+        )
 

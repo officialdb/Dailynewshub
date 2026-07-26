@@ -1,15 +1,20 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../providers/reels_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/channels_provider.dart';
+import '../services/channels_service.dart';
+import '../services/news_api_service.dart';
+import '../config/api_config.dart';
 import '../models/reel.dart';
-import 'package:provider/provider.dart' as legacy_provider;
 import '../widgets/comment_bottom_sheet.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
@@ -24,7 +29,9 @@ class ReelsScreen extends ConsumerStatefulWidget {
 class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   final PageController _pageController = PageController();
   final Map<int, YoutubePlayerController> _controllers = {};
+  final Set<String> _seenReelIds = {};
   int _currentPage = 0;
+  bool _initialFetchDone = false;
 
   @override
   void initState() {
@@ -32,13 +39,17 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     _pageController.addListener(_onPageChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-      ref.read(reelsProvider.notifier).setToken(auth.currentUser?.accessToken);
+      final authState = ref.read(authProvider);
+      final token = authState.user?.accessToken;
+      ref.read(reelsProvider.notifier).setToken(token);
       ref.read(reelsProvider.notifier).fetchReels().then((_) {
         _initControllerForIndex(0);
         _initControllerForIndex(1);
         if (mounted) setState(() {});
       });
+      // Load followed channels for the Follow button state
+      ref.read(followedChannelsProvider.notifier).setToken(token);
+      ref.read(followedChannelsProvider.notifier).fetchFollowedChannels();
     });
   }
 
@@ -54,6 +65,15 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       setState(() {});
 
       final reels = ref.read(reelsProvider).value ?? [];
+
+      // Mark current and nearby reels as seen
+      for (int i = max(0, page - 1);
+          i < min(reels.length, page + 2);
+          i++) {
+        _seenReelIds.add(reels[i].id);
+      }
+
+      // Load more when approaching the end
       if (page >= reels.length - 2) {
         ref.read(reelsProvider.notifier).loadMore();
       }
@@ -101,10 +121,12 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     }
     _controllers.clear();
     _currentPage = 0;
-    _pageController.jumpToPage(0);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
 
-    final auth = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-    ref.read(reelsProvider.notifier).setToken(auth.currentUser?.accessToken);
+    final authState = ref.read(authProvider);
+    ref.read(reelsProvider.notifier).setToken(authState.user?.accessToken);
     await ref.read(reelsProvider.notifier).fetchReels();
 
     _initControllerForIndex(0);
@@ -117,8 +139,11 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive != oldWidget.isActive) {
       if (widget.isActive) {
-        // Tab became active again — refresh the feed for new content
-        _refresh();
+        // Tab became active — only resume video, don't re-fetch
+        // (prevents showing the same reels over and over)
+        if (_controllers.containsKey(_currentPage)) {
+          _controllers[_currentPage]?.playVideo();
+        }
       } else {
         _controllers[_currentPage]?.pauseVideo();
       }
@@ -143,17 +168,22 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         extendBodyBehindAppBar: true,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'News Reels',
-            style: GoogleFonts.spaceGrotesk(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            title: Text(
+              'News Reels',
+              style: GoogleFonts.spaceGrotesk(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 18,
+              ),
             ),
+            centerTitle: true,
           ),
-          centerTitle: true,
         ),
         body: reelsAsync.when(
           loading: () => const Center(
@@ -231,6 +261,8 @@ class ReelPlayerItem extends ConsumerStatefulWidget {
 class _ReelPlayerItemState extends ConsumerState<ReelPlayerItem> {
   bool _isPlaying = false;
   bool _showPauseIcon = false;
+  bool _isSpeedUp = false;
+  String? _seekIndicator;
   StreamSubscription<YoutubePlayerValue>? _sub;
 
   @override
@@ -314,6 +346,13 @@ class _ReelPlayerItemState extends ConsumerState<ReelPlayerItem> {
     }
   }
 
+  void _showSeekIndicator(String text) {
+    setState(() => _seekIndicator = text);
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _seekIndicator = null);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentReel = ref.watch(reelsProvider).value?.firstWhere(
@@ -331,11 +370,36 @@ class _ReelPlayerItemState extends ConsumerState<ReelPlayerItem> {
 
     return GestureDetector(
       onTap: _onTap,
+      onDoubleTapDown: (details) {
+        // FIX 18: Double-tap left/right for seek
+        final screenWidth = MediaQuery.of(context).size.width;
+        final tapX = details.globalPosition.dx;
+        if (tapX > screenWidth / 2) {
+          widget.controller?.seekTo(seconds: 10);
+          _showSeekIndicator('+10s');
+        } else {
+          widget.controller?.seekTo(seconds: 0);
+          _showSeekIndicator('-10s');
+        }
+      },
+      onLongPressStart: (_) {
+        // FIX 18: Long-press for 2x speed
+        widget.controller?.setPlaybackRate(2.0);
+        setState(() => _isSpeedUp = true);
+      },
+      onLongPressEnd: (_) {
+        widget.controller?.setPlaybackRate(1.0);
+        setState(() => _isSpeedUp = false);
+      },
       child: Container(
         color: Colors.black,
-        child: Stack(
-          fit: StackFit.expand,
+        child: Column(
           children: [
+            // ── Video + overlays area ──
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
             // ── 1. YouTube iframe ──────────────────────────────────────────
             if (widget.controller != null)
               Positioned(
@@ -479,104 +543,169 @@ class _ReelPlayerItemState extends ConsumerState<ReelPlayerItem> {
                 ),
               ),
             ),
+          ],
+        ),
+            ), // close Stack
 
-            // ── 6. Action buttons ─────────────────────────────────────────
-            Positioned(
-              right: 12,
-              bottom: 20, // Moved down to avoid overlapping the iframe
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ActionButton(
-                    icon: currentReel.isLiked
-                        ? Icons.favorite
-                        : Icons.favorite_border,
-                    color: currentReel.isLiked
-                        ? const Color(0xFFE23B3B)
-                        : Colors.white,
-                    label: _fmt(currentReel.likeCount),
-                    onTap: () {
-                      final auth = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-                      if (!auth.isRegistered) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please log in to like shorts'),
-                            backgroundColor: Color(0xFF1D2035),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        return;
-                      }
-                      ref.read(reelsProvider.notifier).toggleLike(widget.reel.id);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _ActionButton(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    color: Colors.white,
-                    label: _fmt(currentReel.commentCount),
-                    onTap: () {
-                      widget.controller?.pauseVideo();
-                      showTikTokComments(context, widget.reel.id)
-                          .whenComplete(() {
-                        if (widget.isActive) widget.controller?.playVideo();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _ActionButton(
-                    icon: Icons.reply_rounded,
-                    color: Colors.white,
-                    label: 'Share',
-                    onTap: () {},
-                  ),
-                ],
+            // ── Bottom action bar (OUTSIDE Stack for guaranteed visibility) ──
+            Container(
+              color: Colors.black,
+              padding: EdgeInsets.only(
+                left: 12,
+                right: 12,
+                bottom: MediaQuery.of(context).padding.bottom + 8,
+                top: 8,
               ),
-            ),
-
-            // ── 7. Channel + title info ───────────────────────────────────
-            Positioned(
-              left: 12,
-              right: 80,
-              bottom: 20, // Moved down to match action buttons
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: const Color(0xFF1D2035),
-                        backgroundImage: widget.reel.channelLogoUrl != null
-                            ? NetworkImage(widget.reel.channelLogoUrl!)
-                            : null,
-                        child: widget.reel.channelLogoUrl == null
-                            ? const Icon(Icons.person,
-                                color: Colors.white, size: 18)
-                            : null,
-                      ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Text(
-                          widget.reel.channelName,
+                  // Channel info + Follow button (left side)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: const Color(0xFF1D2035),
+                              backgroundImage:
+                                  widget.reel.channelLogoUrl != null
+                                      ? NetworkImage(
+                                          widget.reel.channelLogoUrl!)
+                                      : null,
+                              child: widget.reel.channelLogoUrl == null
+                                  ? const Icon(Icons.person,
+                                      color: Colors.white, size: 16)
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                widget.reel.channelName,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Follow button next to channel name
+                            _FollowButton(
+                              channelId: widget.reel.channelId,
+                              channelName: widget.reel.channelName,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.reel.title,
                           style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
+                              color: Colors.white70, fontSize: 12),
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ],
+                    ),
+                  ),
+                  // Action buttons (right side) — more space now
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ActionButton(
+                        icon: currentReel.isLiked
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: currentReel.isLiked
+                            ? const Color(0xFFE23B3B)
+                            : Colors.white,
+                        label: _fmt(currentReel.likeCount),
+                        iconSize: 24,
+                        onTap: () {
+                          final authState = ref.read(authProvider);
+                          if (!authState.isRegistered) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('Please log in to like shorts'),
+                                backgroundColor: Color(0xFF1D2035),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+                          ref
+                              .read(reelsProvider.notifier)
+                              .toggleLike(widget.reel.id);
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _ActionButton(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        color: Colors.white,
+                        label: _fmt(currentReel.commentCount),
+                        iconSize: 24,
+                        onTap: () {
+                          widget.controller?.pauseVideo();
+                          showTikTokComments(context, widget.reel.id)
+                              .whenComplete(() {
+                            if (widget.isActive)
+                              widget.controller?.playVideo();
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _ActionButton(
+                        icon: currentReel.isBookmarked
+                            ? Icons.bookmark
+                            : Icons.bookmark_border,
+                        color: currentReel.isBookmarked
+                            ? const Color(0xFFFFD700)
+                            : Colors.white,
+                        label: '',
+                        iconSize: 24,
+                        onTap: () async {
+                          final authState = ref.read(authProvider);
+                          if (!authState.isRegistered) return;
+                          ref
+                              .read(reelsProvider.notifier)
+                              .toggleBookmark(widget.reel.id);
+                          // Use reel-specific bookmark endpoints
+                          try {
+                            final baseUrl = ApiConfig.baseUrl;
+                            final token = authState.user!.accessToken!;
+                            final headers = {
+                              'Authorization': 'Bearer $token',
+                              'Accept': 'application/json',
+                            };
+                            if (currentReel.isBookmarked) {
+                              await http.delete(
+                                Uri.parse(
+                                    '$baseUrl/bookmarks/reels/${widget.reel.id}'),
+                                headers: headers,
+                              );
+                            } else {
+                              await http.post(
+                                Uri.parse(
+                                    '$baseUrl/bookmarks/reels/${widget.reel.id}'),
+                                headers: headers,
+                              );
+                            }
+                          } catch (_) {}
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _ActionButton(
+                        icon: Icons.reply_rounded,
+                        color: Colors.white,
+                        label: '',
+                        iconSize: 24,
+                        onTap: () {},
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.reel.title,
-                    style: GoogleFonts.poppins(
-                        color: Colors.white70, fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -600,12 +729,14 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String label;
+  final double iconSize;
   final VoidCallback onTap;
 
   const _ActionButton({
     required this.icon,
     required this.color,
     required this.label,
+    this.iconSize = 30,
     required this.onTap,
   });
 
@@ -616,17 +747,104 @@ class _ActionButton extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 30),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Icon(icon, color: color, size: iconSize),
+          if (label.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: iconSize < 28 ? 10 : 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class _FollowButton extends ConsumerStatefulWidget {
+  final String channelId;
+  final String channelName;
+
+  const _FollowButton({
+    required this.channelId,
+    required this.channelName,
+  });
+
+  @override
+  ConsumerState<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends ConsumerState<_FollowButton> {
+  bool _isLoading = false;
+
+  bool get _isFollowing {
+    final followed = ref.watch(followedChannelsProvider).value ?? [];
+    return followed.any((c) => c.id == widget.channelId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _isLoading
+          ? null
+          : () async {
+              final authState = ref.read(authProvider);
+              if (!authState.isRegistered) return;
+
+              setState(() => _isLoading = true);
+              try {
+                final service = ChannelsService();
+                if (_isFollowing) {
+                  await service.unfollowChannel(
+                    widget.channelId,
+                    token: authState.user?.accessToken,
+                  );
+                } else {
+                  await service.followChannel(
+                    widget.channelId,
+                    token: authState.user?.accessToken,
+                  );
+                }
+                // Refresh the followed channels list so state persists
+                await ref
+                    .read(followedChannelsProvider.notifier)
+                    .fetchFollowedChannels();
+              } catch (_) {
+                // Silently handle errors
+              } finally {
+                if (mounted) {
+                  setState(() => _isLoading = false);
+                }
+              }
+            },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: _isFollowing ? const Color(0xFFE23B3B) : Colors.transparent,
+          border: Border.all(color: Colors.white, width: 1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            : Text(
+                _isFollowing ? 'Following' : 'Follow',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }

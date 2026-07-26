@@ -297,30 +297,6 @@ async def fetch_and_save_articles() -> list[Article]:
                 if close_client:
                     await redis_client.aclose()
 
-            await push_notification.send_to_all(
-                title="New articles available",
-                body=f"{len(new_articles)} new articles were added to Daily News Hub.",
-            )
-
-            notification = Notification(
-                title="New articles available",
-                body=f"{len(new_articles)} new articles were added to Daily News Hub.",
-                sent_at=datetime.now(timezone.utc),
-            )
-            session.add(notification)
-            await session.commit()
-            await session.refresh(notification)
-            await connection_manager.broadcast(
-                {
-                    "type": "notification",
-                    "notification_id": str(notification.id),
-                    "title": notification.title,
-                    "body": notification.body,
-                    "article_id": None,
-                    "sent_at": notification.sent_at.isoformat() if notification.sent_at else None,
-                }
-            )
-
         return new_articles
 
 

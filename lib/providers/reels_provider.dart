@@ -83,6 +83,18 @@ class ReelsNotifier extends AsyncNotifier<List<Reel>> {
     }
   }
 
+  Future<void> toggleBookmark(String reelId) async {
+    if (state.value == null) return;
+
+    final currentList = List<Reel>.from(state.value!);
+    final index = currentList.indexWhere((r) => r.id == reelId);
+    if (index == -1) return;
+
+    final reel = currentList[index];
+    currentList[index] = reel.copyWith(isBookmarked: !reel.isBookmarked);
+    state = AsyncData(currentList);
+  }
+
   void incrementCommentCount(String reelId) {
     if (state.value == null) return;
     

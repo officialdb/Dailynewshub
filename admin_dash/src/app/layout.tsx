@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import SideNav from "@/components/SideNav";
-import TopNav from "@/components/TopNav";
 import { AuthProvider } from "@/context/AuthContext";
-import MainWrapper from "@/components/MainWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,9 +26,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-surface text-on-surface">
         <AuthProvider>
-          <SideNav />
-          <TopNav />
-          <MainWrapper>{children}</MainWrapper>
+          {children}
         </AuthProvider>
       </body>
     </html>

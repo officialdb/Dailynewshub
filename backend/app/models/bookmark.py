@@ -24,14 +24,17 @@ class Bookmark(Base):
     """Bookmark connecting a user to an article."""
 
     __tablename__ = "bookmarks"
-    __table_args__ = (UniqueConstraint("user_id", "article_id", name="uq_bookmarks_user_article"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "article_id", name="uq_bookmarks_user_article"),
+        UniqueConstraint("user_id", "reel_id", name="uq_bookmarks_user_reel"),
+    )
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    article_id: Mapped[UUID] = mapped_column(
+    article_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("articles.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

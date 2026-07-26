@@ -7,13 +7,13 @@ export default function TopNav() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  if (pathname === "/login") return null;
+  if (pathname === "/admin/login") return null;
 
   return (
     <header className="fixed top-0 right-0 h-16 bg-surface-container-lowest flex justify-between items-center px-margin ml-[280px] w-[calc(100%-280px)] shadow-sm z-40 border-b border-outline-variant">
       <div className="flex items-center gap-4 flex-1">
         <h2 className="font-headline-md text-headline-md text-on-surface hidden md:block capitalize">
-          {pathname === "/" ? "Overview" : pathname.split("/").filter(Boolean).join(" / ")}
+          {pathname === "/admin" ? "Overview" : pathname.replace(/^\/admin\/?/, "").split("/").filter(Boolean).join(" / ")}
         </h2>
       </div>
       <div className="flex items-center gap-3">

@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import 'login_screen.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
+  final _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   @override
   void dispose() {
@@ -23,7 +24,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String? _validatePasswords() {
+    if (_passwordController.text.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(_passwordController.text)) {
+      return 'Password must contain an uppercase letter';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(_passwordController.text)) {
+      return 'Password must contain a number';
+    }
+    if (_passwordController.text != _confirmPasswordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
   }
 
   void _register() async {
@@ -36,39 +54,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
         lastName.isEmpty ||
         email.isEmpty ||
         password.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.register(
-      firstName,
-      lastName,
-      email,
-      password,
-    );
-
-    if (!mounted) {
+    final validationError = _validatePasswords();
+    if (validationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(validationError)),
+      );
       return;
     }
 
-    setState(() => _isLoading = false);
+    final authNotifier = ref.read(authProvider.notifier);
+    final success =
+        await authNotifier.register(firstName, lastName, email, password);
+
+    if (!mounted) return;
 
     if (success) {
-      Navigator.pop(context); // Go back
+      Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Email already exists')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email already exists')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(authProvider).isLoading;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -88,18 +106,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             Text(
               'CREATE ACCOUNT',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             Text(
               'Join us to engage with the news.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
             ),
             const SizedBox(height: 48),
             Row(
@@ -137,7 +157,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _passwordController,
               label: 'PASSWORD',
               icon: Icons.lock_outline,
-              obscureText: true,
+              obscureText: _obscurePassword,
+              onToggleVisibility: () {
+                setState(() => _obscurePassword = !_obscurePassword);
+              },
+            ),
+            const SizedBox(height: 24),
+            _buildTextField(
+              context,
+              controller: _confirmPasswordController,
+              label: 'CONFIRM PASSWORD',
+              icon: Icons.lock_outline,
+              obscureText: _obscureConfirm,
+              onToggleVisibility: () {
+                setState(() => _obscureConfirm = !_obscureConfirm);
+              },
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -150,12 +184,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: _isLoading ? null : _register,
-                child: _isLoading
+                onPressed: isLoading ? null : _register,
+                child: isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
                         'SIGN UP',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -168,26 +204,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Center(
               child: TextButton(
                 onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
+                  Navigator.pushReplacementNamed(context, '/login');
                 },
                 child: RichText(
                   text: TextSpan(
                     text: "Already have an account? ",
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                        ),
                     children: [
                       TextSpan(
                         text: 'Log In',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ],
                   ),
@@ -207,6 +241,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required IconData icon,
     bool obscureText = false,
     TextInputType? keyboardType,
+    VoidCallback? onToggleVisibility,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,12 +249,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.6),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -232,10 +268,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
             fillColor: Theme.of(context).inputDecorationTheme.fillColor,
             prefixIcon: Icon(
               icon,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
             ),
+            suffixIcon: onToggleVisibility != null
+                ? IconButton(
+                    icon: Icon(
+                      obscureText
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+                    onPressed: onToggleVisibility,
+                  )
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,

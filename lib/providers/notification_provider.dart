@@ -3,57 +3,87 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/api_config.dart';
 import '../models/app_notification.dart';
 import '../services/news_api_service.dart';
 import 'auth_provider.dart';
 
-class NotificationProvider with ChangeNotifier {
-  NotificationProvider({NewsApiService? apiService})
-    : _apiService = apiService ?? NewsApiService();
+class NotificationState {
+  final List<AppNotification> notifications;
+  final bool isLoading;
+  final bool isConnected;
+  final String? errorMessage;
 
-  final NewsApiService _apiService;
-  final List<AppNotification> _notifications = [];
+  const NotificationState({
+    this.notifications = const [],
+    this.isLoading = false,
+    this.isConnected = false,
+    this.errorMessage,
+  });
+
+  int get unreadCount => notifications.length;
+
+  NotificationState copyWith({
+    List<AppNotification>? notifications,
+    bool? isLoading,
+    bool? isConnected,
+    String? errorMessage,
+    bool clearError = false,
+  }) {
+    return NotificationState(
+      notifications: notifications ?? this.notifications,
+      isLoading: isLoading ?? this.isLoading,
+      isConnected: isConnected ?? this.isConnected,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+}
+
+class NotificationNotifier extends Notifier<NotificationState> {
+  late final NewsApiService _apiService;
   final Set<String> _notificationIds = {};
   final StreamController<Map<String, dynamic>> _eventController =
       StreamController<Map<String, dynamic>>.broadcast();
 
   String? _accessToken;
-  bool _isLoading = false;
   bool _isConnecting = false;
-  bool _isConnected = false;
-  String? _errorMessage;
   WebSocket? _socket;
   StreamSubscription<dynamic>? _socketSubscription;
   Timer? _reconnectTimer;
 
-  bool get isLoading => _isLoading;
-
-  bool get isConnected => _isConnected;
-
-  String? get errorMessage => _errorMessage;
-
-  List<AppNotification> get notifications => List.unmodifiable(_notifications);
-
-  int get unreadCount => _notifications.length;
-
   Stream<Map<String, dynamic>> get events => _eventController.stream;
 
-  void setAuthProvider(AuthProvider authProvider) {
-    final nextToken = authProvider.currentUser?.accessToken;
-    final tokenChanged = nextToken != _accessToken;
+  @override
+  NotificationState build() {
+    _apiService = NewsApiService();
 
-    if (!tokenChanged) {
-      return;
+    ref.listen<AuthState>(authProvider, (prev, next) {
+      final nextToken = next.user?.accessToken;
+      final prevToken = prev?.user?.accessToken;
+      if (nextToken != prevToken) {
+        _onTokenChanged(nextToken);
+      }
+    });
+
+    // Handle initial token if already available — deferred to after build()
+    final initialToken = ref.read(authProvider).user?.accessToken;
+    if (initialToken != null && initialToken.isNotEmpty) {
+      Future.microtask(() => _onTokenChanged(initialToken));
     }
 
+    return const NotificationState();
+  }
+
+  void _onTokenChanged(String? newToken) {
+    if (newToken == _accessToken) return;
+
     _clearSessionState();
-    _accessToken = nextToken;
+    _accessToken = newToken;
 
     if (_accessToken == null || _accessToken!.isEmpty) {
-      _clearSessionState();
-      notifyListeners();
+      state = const NotificationState();
       return;
     }
 
@@ -63,36 +93,27 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> refreshNotifications({bool force = false}) async {
     final accessToken = _accessToken;
-    if (accessToken == null || accessToken.isEmpty || _isLoading && !force) {
-      return;
-    }
+    if (accessToken == null || accessToken.isEmpty) return;
+    if (state.isLoading && !force) return;
 
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final items = await _apiService.fetchNotifications(
-        accessToken: accessToken,
-      );
+      final items =
+          await _apiService.fetchNotifications(accessToken: accessToken);
       _mergeNotifications(items);
     } catch (error) {
-      _errorMessage = error.toString();
+      state = state.copyWith(errorMessage: error.toString());
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      state = state.copyWith(isLoading: false);
     }
   }
 
   Future<void> _connectLiveFeed() async {
-    if (_isConnecting || _isConnected) {
-      return;
-    }
+    if (_isConnecting || state.isConnected) return;
 
     final accessToken = _accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      return;
-    }
+    if (accessToken == null || accessToken.isEmpty) return;
 
     _isConnecting = true;
     try {
@@ -107,8 +128,7 @@ class NotificationProvider with ChangeNotifier {
       );
 
       _socket = await WebSocket.connect(socketUri.toString());
-      _isConnected = true;
-      notifyListeners();
+      state = state.copyWith(isConnected: true);
 
       _socketSubscription = _socket!.listen(
         _handleSocketMessage,
@@ -117,9 +137,8 @@ class NotificationProvider with ChangeNotifier {
         cancelOnError: true,
       );
     } catch (error) {
-      _errorMessage = error.toString();
+      state = state.copyWith(errorMessage: error.toString());
       _scheduleReconnect();
-      notifyListeners();
     } finally {
       _isConnecting = false;
     }
@@ -130,12 +149,10 @@ class NotificationProvider with ChangeNotifier {
       final payload = message is String
           ? jsonDecode(message)
           : message is List<int>
-          ? jsonDecode(utf8.decode(message))
-          : message;
+              ? jsonDecode(utf8.decode(message))
+              : message;
 
-      if (payload is! Map<String, dynamic>) {
-        return;
-      }
+      if (payload is! Map<String, dynamic>) return;
 
       if (!_eventController.isClosed) {
         _eventController.add(payload);
@@ -143,8 +160,7 @@ class NotificationProvider with ChangeNotifier {
 
       final type = payload['type']?.toString();
       if (type == 'notification') {
-        final notificationId =
-            payload['notification_id']?.toString() ??
+        final notificationId = payload['notification_id']?.toString() ??
             'live-${DateTime.now().microsecondsSinceEpoch}';
         final notification = AppNotification(
           id: notificationId,
@@ -154,36 +170,31 @@ class NotificationProvider with ChangeNotifier {
           articleTitle: payload['article_title']?.toString(),
           createdAt:
               DateTime.tryParse(payload['sent_at']?.toString() ?? '') ??
-              DateTime.now(),
+                  DateTime.now(),
           sentAt: DateTime.tryParse(payload['sent_at']?.toString() ?? ''),
         );
         _addNotification(notification);
       }
     } catch (error) {
-      _errorMessage = error.toString();
-      notifyListeners();
+      state = state.copyWith(errorMessage: error.toString());
     }
   }
 
   void _handleSocketError(Object error) {
-    _isConnected = false;
-    _errorMessage = error.toString();
-    notifyListeners();
+    state = state.copyWith(
+        isConnected: false, errorMessage: error.toString());
     _scheduleReconnect();
   }
 
   void _handleSocketDone() {
-    _isConnected = false;
-    notifyListeners();
+    state = state.copyWith(isConnected: false);
     _scheduleReconnect();
   }
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
     final accessToken = _accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      return;
-    }
+    if (accessToken == null || accessToken.isEmpty) return;
 
     _reconnectTimer = Timer(const Duration(seconds: 10), () {
       if (_accessToken != null && _accessToken!.isNotEmpty) {
@@ -193,36 +204,40 @@ class NotificationProvider with ChangeNotifier {
   }
 
   void _mergeNotifications(List<AppNotification> items) {
+    final current = List<AppNotification>.from(state.notifications);
+
     for (final item in items) {
       if (_notificationIds.contains(item.id)) {
-        final index = _notifications.indexWhere(
-          (notification) => notification.id == item.id,
-        );
+        final index = current.indexWhere((n) => n.id == item.id);
         if (index != -1) {
-          _notifications[index] = item;
+          current[index] = item;
         }
         continue;
       }
-
       _notificationIds.add(item.id);
-      _notifications.add(item);
+      current.add(item);
     }
 
-    _notifications.sort((a, b) {
+    current.sort((a, b) {
       final aTime = a.sentAt ?? a.createdAt;
       final bTime = b.sentAt ?? b.createdAt;
       return bTime.compareTo(aTime);
     });
+
+    state = state.copyWith(notifications: current);
   }
 
   void _addNotification(AppNotification notification) {
-    if (_notificationIds.contains(notification.id)) {
-      return;
-    }
+    if (_notificationIds.contains(notification.id)) return;
 
     _notificationIds.add(notification.id);
-    _notifications.insert(0, notification);
-    notifyListeners();
+    final current = [notification, ...state.notifications];
+    state = state.copyWith(notifications: current);
+  }
+
+  void clearAll() {
+    _notificationIds.clear();
+    state = state.copyWith(notifications: <AppNotification>[]);
   }
 
   void _clearSessionState() {
@@ -232,20 +247,10 @@ class NotificationProvider with ChangeNotifier {
     _socketSubscription = null;
     _socket?.close();
     _socket = null;
-    _isConnected = false;
-    _isConnecting = false;
-    _notifications.clear();
     _notificationIds.clear();
-    _errorMessage = null;
-    _isLoading = false;
-  }
-
-  @override
-  void dispose() {
-    _reconnectTimer?.cancel();
-    _socketSubscription?.cancel();
-    _socket?.close();
-    _eventController.close();
-    super.dispose();
   }
 }
+
+final notificationProvider =
+    NotifierProvider<NotificationNotifier, NotificationState>(
+        NotificationNotifier.new);

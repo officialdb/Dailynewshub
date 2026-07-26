@@ -122,13 +122,38 @@ class NewsApiService {
   Future<ArticlePage> fetchArticles({
     int page = 1,
     int limit = 20,
+    String? accessToken,
   }) async {
-    final response = await _client.get(
-      _uri('/articles', {'page': '$page', 'limit': '$limit'}),
-      headers: _headers(),
-    );
-    final decoded = _decodeJson(response);
-    _ensureSuccess(response, decoded);
+    // Use personalized endpoint when authenticated for preference-based ranking
+    final usePersonalized =
+        accessToken != null && accessToken.isNotEmpty;
+    final path = usePersonalized ? '/articles/personalized' : '/articles';
+
+    try {
+      final response = await _client.get(
+        _uri(path, {'page': '$page', 'limit': '$limit'}),
+        headers: _headers(token: accessToken),
+      );
+      final decoded = _decodeJson(response);
+      _ensureSuccess(response, decoded);
+      return _parseArticlePage(decoded, page, limit);
+    } catch (e) {
+      // Fallback to non-personalized endpoint if personalized fails
+      if (usePersonalized) {
+        final response = await _client.get(
+          _uri('/articles', {'page': '$page', 'limit': '$limit'}),
+          headers: _headers(),
+        );
+        final decoded = _decodeJson(response);
+        _ensureSuccess(response, decoded);
+        return _parseArticlePage(decoded, page, limit);
+      }
+      rethrow;
+    }
+  }
+
+  ArticlePage _parseArticlePage(
+      Map<String, dynamic> decoded, int page, int limit) {
     final data = decoded['data'];
     if (data is! Map<String, dynamic>) {
       throw NewsApiException('Malformed article response from backend');
