@@ -337,6 +337,7 @@ async def send_notification(
         body=payload.body,
         article_id=payload.article_id,
         sent_at=datetime.now(timezone.utc),
+        is_sent=True,
     )
     db.add(notification)
     await db.commit()
