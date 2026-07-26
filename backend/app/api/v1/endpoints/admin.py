@@ -144,15 +144,42 @@ async def delete_user(
 async def list_articles(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
+    search: str = Query(default="", max_length=200),
+    category_id: str = Query(default=""),
     _: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
-    """List articles with pagination."""
+    """List articles with pagination, search, and category filter."""
 
-    total = int(await db.scalar(select(func.count(Article.id))) or 0)
-    result = await db.execute(select(Article).order_by(Article.created_at.desc()).offset((page - 1) * limit).limit(limit))
+    query = select(Article)
+    count_query = select(func.count(Article.id))
+
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(Article.title.ilike(pattern) | Article.source_name.ilike(pattern))
+        count_query = count_query.where(Article.title.ilike(pattern) | Article.source_name.ilike(pattern))
+
+    if category_id:
+        query = query.where(Article.category_id == category_id)
+        count_query = count_query.where(Article.category_id == category_id)
+
+    total = int(await db.scalar(count_query) or 0)
+    result = await db.execute(query.order_by(Article.created_at.desc()).offset((page - 1) * limit).limit(limit))
     articles = [ArticleResponse.model_validate(article).model_dump(mode="json") for article in result.scalars().all()]
     return {"success": True, "message": "Articles retrieved successfully", "data": _paginate(articles, total, page, limit)}
+
+
+@router.get("/articles/{article_id}")
+async def get_article(
+    article_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Get a single article by ID."""
+    article = await db.get(Article, article_id)
+    if not article:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    return {"success": True, "message": "Article retrieved", "data": ArticleResponse.model_validate(article).model_dump(mode="json")}
 
 
 @router.post("/articles", status_code=status.HTTP_201_CREATED)
@@ -242,6 +269,53 @@ async def analytics(
 
     data = await get_analytics(db)
     return {"success": True, "message": "Analytics retrieved successfully", "data": data}
+
+
+@router.get("/activity")
+async def recent_activity(
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Return recent activity feed: latest users, articles, and comments."""
+
+    recent_users_result = await db.execute(
+        select(User).order_by(User.created_at.desc()).limit(5)
+    )
+    recent_users = [
+        {"id": str(u.id), "name": u.name, "email": u.email, "created_at": u.created_at.isoformat()}
+        for u in recent_users_result.scalars().all()
+    ]
+
+    recent_articles_result = await db.execute(
+        select(Article).order_by(Article.created_at.desc()).limit(5)
+    )
+    recent_articles = [
+        {"id": str(a.id), "title": a.title, "source_name": a.source_name, "created_at": a.created_at.isoformat()}
+        for a in recent_articles_result.scalars().all()
+    ]
+
+    recent_comments_result = await db.execute(
+        select(Comment).order_by(Comment.created_at.desc()).limit(5)
+    )
+    recent_comments = [
+        {
+            "id": str(c.id),
+            "body": c.body[:100],
+            "article_title": c.article.title if c.article else None,
+            "user_name": c.user_name,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c in recent_comments_result.scalars().all()
+    ]
+
+    return {
+        "success": True,
+        "data": {
+            "recent_users": recent_users,
+            "recent_articles": recent_articles,
+            "recent_comments": recent_comments,
+        },
+    }
 
 
 @router.post("/notifications/send")
