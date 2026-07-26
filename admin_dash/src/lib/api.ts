@@ -39,13 +39,6 @@ async function apiFetch<T>(
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
-      clearTokens();
-      localStorage.removeItem("admin_user");
-      if (!window.location.pathname.includes("/login")) {
-        window.location.href = "/login";
-      }
-    }
     const error = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(error?.detail ?? `API error ${res.status}`);
   }
@@ -96,13 +89,6 @@ export const articlesApi = {
       `/admin/articles?page=${page}&limit=${limit}`
     ),
 
-  get: (id: string) =>
-    apiFetch<{ success: boolean; data: import("./types").Article }>(
-      `/articles/${id}`,
-      {},
-      false
-    ),
-
   create: (payload: import("./types").ArticleCreate) =>
     apiFetch<{ success: boolean; data: import("./types").Article }>(
       "/admin/articles",
@@ -120,12 +106,6 @@ export const articlesApi = {
       `/admin/articles/${id}`,
       { method: "DELETE" }
     ),
-
-  pin: (id: string) =>
-    apiFetch<{ success: boolean; data: import("./types").Article }>(
-      `/admin/articles/${id}/pin`,
-      { method: "PUT" }
-    ),
 };
 
 // ─── Admin: Analytics ────────────────────────────────────────────────────────
@@ -136,58 +116,3 @@ export const analyticsApi = {
       "/admin/analytics"
     ),
 };
-
-// ─── Admin: Notifications ───────────────────────────────────────────────────
-
-export const notificationsApi = {
-  send: (payload: import("./types").SendNotificationRequest) =>
-    apiFetch<{ success: boolean; data: import("./types").NotificationResponse }>(
-      "/admin/notifications/send",
-      { method: "POST", body: JSON.stringify(payload) }
-    ),
-
-  schedule: (payload: import("./types").ScheduleNotificationRequest) =>
-    apiFetch<{ success: boolean; data: import("./types").NotificationResponse }>(
-      "/admin/notifications/schedule",
-      { method: "POST", body: JSON.stringify(payload) }
-    ),
-};
-
-// ─── Categories ─────────────────────────────────────────────────────────────
-
-export const categoriesApi = {
-  list: async (): Promise<{ success: boolean; data: { id: string; name: string; slug: string }[] }> => {
-    // Try public endpoint first; fall back to authenticated admin fetch on error
-    try {
-      return await apiFetch<{ success: boolean; data: { id: string; name: string; slug: string }[] }>(
-        "/categories",
-        {},
-        false
-      );
-    } catch {
-      // If public endpoint fails (e.g. CORS/Redis issue), try with auth token
-      return apiFetch<{ success: boolean; data: { id: string; name: string; slug: string }[] }>(
-        "/categories",
-        {},
-        true
-      );
-    }
-  },
-};
-
-
-// ─── Admin: Reels ────────────────────────────────────────────────────────────
-
-export const reelsApi = {
-  list: (page = 1, limit = 10) =>
-    apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").Reel> }>(
-      `/admin/reels?page=${page}&limit=${limit}`
-    ),
-
-  delete: (id: string) =>
-    apiFetch<{ success: boolean }>(
-      `/admin/reels/${id}`,
-      { method: "DELETE" }
-    ),
-};
-

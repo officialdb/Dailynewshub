@@ -25,9 +25,9 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
       </head>
-      <body className="min-h-full flex flex-col bg-surface text-slate-900">
+      <body className="min-h-full flex flex-col bg-surface text-on-surface">
         <AuthProvider>
-          <MainWrapper>{children}</MainWrapper>
+          {children}
         </AuthProvider>
       </body>
     </html>
