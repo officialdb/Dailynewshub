@@ -76,7 +76,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="max-w-max-width mx-auto p-margin w-full">
+    <div className="max-w-max-width mx-auto p-4 lg:p-margin w-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-stack-lg">
         <div>
           <h1 className="font-display-lg text-display-lg text-on-surface">Categories</h1>

@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
 
   useEffect(() => {
     analyticsApi.get()
@@ -61,7 +62,7 @@ export default function DashboardPage() {
   const maxCategoryCount = analytics?.articles_per_category?.reduce((max, c) => Math.max(max, c.count), 0) ?? 1;
 
   return (
-    <div className="p-margin space-y-stack-lg max-w-max-width mx-auto w-full">
+    <div className="p-4 lg:p-margin space-y-stack-lg max-w-max-width mx-auto w-full">
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="font-display-lg text-display-lg text-on-surface">Overview</h2>
@@ -102,9 +103,20 @@ export default function DashboardPage() {
 
       {analytics?.articles_per_category && analytics.articles_per_category.length > 0 && (
         <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
-          <h3 className="font-headline-md text-headline-md text-on-surface mb-4">Articles per Category</h3>
-          <div className="space-y-3">
-            {analytics.articles_per_category.map(item => (
+          <button
+            onClick={() => setCategoriesExpanded(v => !v)}
+            className="flex items-center justify-between w-full mb-4 cursor-pointer group"
+          >
+            <h3 className="font-headline-md text-headline-md text-on-surface">
+              Articles per Category
+              <span className="text-label-sm text-secondary font-normal ml-2">({analytics.articles_per_category.length})</span>
+            </h3>
+            <span className={`material-symbols-outlined text-outline group-hover:text-primary transition-transform duration-200 ${categoriesExpanded ? "rotate-180" : ""}`}>
+              expand_more
+            </span>
+          </button>
+          <div className={`space-y-3 overflow-hidden transition-all duration-300 ${categoriesExpanded ? "max-h-[2000px]" : "max-h-[220px]"}`}>
+            {(categoriesExpanded ? analytics.articles_per_category : analytics.articles_per_category.slice(0, 5)).map(item => (
               <div key={item.category} className="flex items-center gap-3">
                 <span className="text-label-md text-on-surface-variant w-32 truncate text-right">{item.category}</span>
                 <div className="flex-1 bg-surface-container-high rounded-full h-6 overflow-hidden">
@@ -118,6 +130,14 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+          {analytics.articles_per_category.length > 5 && (
+            <button
+              onClick={() => setCategoriesExpanded(v => !v)}
+              className="mt-3 text-label-md text-primary hover:underline cursor-pointer"
+            >
+              {categoriesExpanded ? "Show less" : `Show all ${analytics.articles_per_category.length} categories`}
+            </button>
+          )}
         </section>
       )}
 

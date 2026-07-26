@@ -10,7 +10,7 @@ export default function NotificationsPage() {
   const [tab, setTab] = useState<Tab>("history");
 
   return (
-    <div className="max-w-max-width mx-auto p-margin w-full">
+    <div className="max-w-max-width mx-auto p-4 lg:p-margin w-full">
       <div className="mb-stack-lg">
         <h1 className="font-display-lg text-display-lg text-on-surface">Notifications</h1>
         <p className="font-body-md text-body-md text-secondary">Send, schedule, and manage push notifications</p>
