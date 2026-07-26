@@ -331,7 +331,24 @@ async def send_notification(
         if article is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
 
-    sent_count = await send_to_all(title=payload.title, body=payload.body, db=db)
+    from app.models.device_token import DeviceToken
+    from app.services.push_notification import send_to_device
+
+    token_query = select(DeviceToken)
+    if payload.segment == "active":
+        token_query = token_query.join(DeviceToken.user).where(User.is_active == True)
+    elif payload.segment == "admins":
+        token_query = token_query.join(DeviceToken.user).where(User.is_admin == True)
+
+    token_result = await db.execute(token_query)
+    device_tokens = token_result.scalars().all()
+    total_tokens = len(device_tokens)
+
+    sent_count = 0
+    for dt in device_tokens:
+        if await send_to_device(token=dt.fcm_token, title=payload.title, body=payload.body):
+            sent_count += 1
+
     notification = Notification(
         title=payload.title,
         body=payload.body,
@@ -355,7 +372,11 @@ async def send_notification(
     return {
         "success": True,
         "message": "Notification dispatched successfully",
-        "data": {"notification_id": str(notification.id), "sent_count": sent_count},
+        "data": {
+            "notification_id": str(notification.id),
+            "sent_count": sent_count,
+            "total_tokens": total_tokens,
+        },
     }
 
 # --- NEW ADDITION ---
