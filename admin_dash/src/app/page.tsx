@@ -146,7 +146,7 @@ export default function LandingPage() {
     async function fetchBackendNews() {
       try {
         setLoadingBackend(true);
-        const response = await articlesApi.list(1, 6);
+        const response = await articlesApi.listPublic(1, 6);
         if (response?.data?.items && response.data.items.length > 0) {
           const mapped: DisplayNews[] = response.data.items.map((art) => ({
             id: art.id,
