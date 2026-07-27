@@ -28,7 +28,11 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Non-fatal: push notifications won't work but app is usable
+  }
   await OfflineService.init();
   runApp(
     const ProviderScope(
