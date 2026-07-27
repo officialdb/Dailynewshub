@@ -1,9 +1,12 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user.dart';
 import '../services/auth_api_service.dart';
+import '../services/news_api_service.dart';
 
 class AuthState {
   final User? user;
@@ -113,6 +116,7 @@ class AuthNotifier extends Notifier<AuthState> {
         refreshToken: refreshToken,
       ),
     );
+    await _registerFcmToken(accessToken);
   }
 
   Future<void> _clearSession() async {
@@ -174,6 +178,22 @@ class AuthNotifier extends Notifier<AuthState> {
       return false;
     } finally {
       state = state.copyWith(isLoading: false);
+    }
+  }
+
+  Future<void> _registerFcmToken(String accessToken) async {
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        final api = NewsApiService();
+        await api.registerDeviceToken(
+          accessToken: accessToken,
+          fcmToken: fcmToken,
+          platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+        );
+      }
+    } catch (_) {
+      // Non-fatal: push notifications won't work but app is usable
     }
   }
 
