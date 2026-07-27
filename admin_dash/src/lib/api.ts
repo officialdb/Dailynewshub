@@ -1,6 +1,6 @@
 /** Typed API client for the Daily News Hub backend. */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
 
