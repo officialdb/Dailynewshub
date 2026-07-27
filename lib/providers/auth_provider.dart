@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -183,6 +184,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> _registerFcmToken(String accessToken) async {
     try {
+      if (Firebase.apps.isEmpty) return;
       final fcmToken = await FirebaseMessaging.instance.getToken();
       if (fcmToken != null && fcmToken.isNotEmpty) {
         final api = NewsApiService();
@@ -191,9 +193,10 @@ class AuthNotifier extends Notifier<AuthState> {
           fcmToken: fcmToken,
           platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
         );
+        debugPrint('FCM token registered: ${fcmToken.substring(0, 20)}...');
       }
-    } catch (_) {
-      // Non-fatal: push notifications won't work but app is usable
+    } catch (e) {
+      debugPrint('FCM token registration failed: $e');
     }
   }
 
