@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'providers/settings_provider.dart';
 import 'services/offline_service.dart';
@@ -30,6 +32,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
+    await _setupPushNotifications();
   } catch (_) {
     // Non-fatal: push notifications won't work but app is usable
   }
@@ -39,6 +42,60 @@ void main() async {
       child: DailyNewsHubApp(),
     ),
   );
+}
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
+final _localNotifications = FlutterLocalNotificationsPlugin();
+
+Future<void> _setupPushNotifications() async {
+  final messaging = FirebaseMessaging.instance;
+
+  // Request permission
+  await messaging.requestPermission(alert: true, badge: true, sound: true);
+
+  // Background handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize local notifications for foreground display
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const initSettings = InitializationSettings(android: androidSettings);
+  await _localNotifications.initialize(initSettings);
+
+  // Create notification channel
+  const channel = AndroidNotificationChannel(
+    'dailynewshub_channel',
+    'DailyNewsHub Notifications',
+    description: 'Push notifications from DailyNewsHub',
+    importance: Importance.high,
+  );
+  await _localNotifications
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+
+  // Foreground message handler — show as system notification
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    final notification = message.notification;
+    if (notification != null) {
+      _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'dailynewshub_channel',
+            'DailyNewsHub Notifications',
+            channelDescription: 'Push notifications from DailyNewsHub',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    }
+  });
 }
 
 class DailyNewsHubApp extends ConsumerWidget {
