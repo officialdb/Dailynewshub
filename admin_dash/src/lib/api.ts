@@ -101,6 +101,13 @@ export const articlesApi = {
       `/admin/articles?page=${page}&limit=${limit}${params.search ? `&search=${encodeURIComponent(params.search)}` : ""}${params.category_id ? `&category_id=${params.category_id}` : ""}`
     ),
 
+  listPublic: (page = 1, limit = 10) =>
+    apiFetch<{ success: boolean; data: import("./types").PaginatedResponse<import("./types").Article> }>(
+      `/articles?page=${page}&limit=${limit}`,
+      {},
+      false
+    ),
+
   get: (id: string) =>
     apiFetch<{ success: boolean; data: import("./types").Article }>(
       `/admin/articles/${id}`
