@@ -1,4 +1,4 @@
-package com.example.daily_news_hub
+package com.tecpronnet.dailynewshub
 
 import io.flutter.embedding.android.FlutterActivity
 
