@@ -78,11 +78,17 @@ class AuthApiService {
     required String name,
     required String email,
     required String password,
+    String? country,
+    String? state,
   }) async {
+    final body = {'name': name, 'email': email, 'password': password};
+    if (country != null && country.isNotEmpty) body['country'] = country;
+    if (state != null && state.isNotEmpty) body['state'] = state;
+
     final response = await _client.post(
       _uri('/auth/register'),
       headers: _headers(),
-      body: jsonEncode({'name': name, 'email': email, 'password': password}),
+      body: jsonEncode(body),
     );
 
     return _decodeResponse(response);

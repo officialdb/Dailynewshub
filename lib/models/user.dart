@@ -6,6 +6,8 @@ class User {
   final String? profileImageUrl;
   final String? accessToken;
   final String? refreshToken;
+  final String? country;
+  final String? state;
 
   String get firstName {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -28,6 +30,8 @@ class User {
     this.profileImageUrl,
     this.accessToken,
     this.refreshToken,
+    this.country,
+    this.state,
   });
 
   User copyWith({
@@ -38,6 +42,8 @@ class User {
     String? profileImageUrl,
     String? accessToken,
     String? refreshToken,
+    String? country,
+    String? state,
   }) {
     return User(
       id: id ?? this.id,
@@ -47,6 +53,8 @@ class User {
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
+      country: country ?? this.country,
+      state: state ?? this.state,
     );
   }
 
@@ -61,6 +69,8 @@ class User {
       'profileImageUrl': profileImageUrl,
       'accessToken': accessToken,
       'refreshToken': refreshToken,
+      'country': country,
+      'state': state,
     };
   }
 
@@ -96,6 +106,8 @@ class User {
           json['accessToken']?.toString() ?? json['access_token']?.toString(),
       refreshToken:
           json['refreshToken']?.toString() ?? json['refresh_token']?.toString(),
+      country: json['country']?.toString(),
+      state: json['state']?.toString(),
     );
   }
 }

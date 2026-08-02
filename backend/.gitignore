@@ -5,12 +5,16 @@ dist/
 build/
 .venv/
 venv/
+# --- SEC FIX SEC-013 ---
 firebase-credentials.json
+*.json.key
 *.log
 uploads/
 
 # Ignore local env files and secrets
+# --- SEC FIX SEC-013 ---
 .env
+.env.*
 .env.docker
 .env.*.local
 *.env

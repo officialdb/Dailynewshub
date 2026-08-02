@@ -1,20 +1,65 @@
-.venv
-venv
-__pycache__
+# --- DOCKER FIX ---
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 *.pyc
 *.pyo
-*.pyd
-.Python
+.venv/
+venv/
 env/
-build/
-dist/
-*.egg-info
-.git
-.gitignore
-Dockerfile
-docker-compose.yml
-README.md
+
+# --- DOCKER FIX ---
+# Environment files - never bake into image
 .env
 .env.*
+!.env.example
+
+# --- DOCKER FIX ---
+# Sensitive credential files
 firebase-credentials.json
+*.json.key
+*.pem
+*.key
+*.cert
+
+# --- DOCKER FIX ---
+# Version control
+.git/
+.gitignore
+
+# --- DOCKER FIX ---
+# Tests and dev tools
+tests/
+test_*
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# --- DOCKER FIX ---
+# Documentation
+*.md
+docs/
+
+# --- DOCKER FIX ---
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# --- DOCKER FIX ---
+# Build artifacts
+dist/
+build/
+*.egg-info/
 uploads/
+
+# --- DOCKER FIX ---
+# Alembic versions are needed when migrations run inside the container.
+# alembic/versions/
+
+# --- DOCKER FIX ---
+# Logs
+*.log

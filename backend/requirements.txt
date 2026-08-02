@@ -1,24 +1,34 @@
-fastapi==0.111.0
+# --- SEC FIX SEC-004 ---
+fastapi>=0.115.6
+starlette>=0.40.0
 uvicorn[standard]==0.29.0
 sqlalchemy==2.0.30
 asyncpg==0.29.0
 alembic==1.13.1
 pydantic-settings==2.2.1
-python-jose==3.3.0
+# --- SEC FIX SEC-004 ---
+python-jose>=3.4.0
 passlib==1.7.4
 bcrypt==4.1.3
 apscheduler==3.10.4
 firebase-admin==6.5.0
 redis==5.0.4
 pyopenssl==24.2.1
-cryptography>=41.0.5,<44
+# --- SEC FIX SEC-004 ---
+cryptography>=43.0.0
 celery==5.4.0
 httpx==0.27.0
-python-multipart==0.0.9
+# --- SEC FIX SEC-004 ---
+python-multipart>=0.0.12
 email-validator==2.1.1
+# --- SEC FIX SEC-006 ---
+slowapi==0.1.9
+# --- SEC FIX SEC-010 ---
+nh3==0.2.17
 
 # --- NEW ADDITION ---
 isodate==0.6.1
 groq==0.8.0
 google-cloud-texttospeech==2.16.2
-pillow==10.3.0
+# --- SEC FIX SEC-004 ---
+pillow>=10.4.0

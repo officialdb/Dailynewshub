@@ -19,6 +19,7 @@ from app.models.user import User
 from app.schemas.notification import NotificationResponse
 from app.schemas.user import UserResponse, UserUpdate
 from app.core.config import get_settings
+from app.core.email_registry import email_in_use
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -69,8 +70,8 @@ async def update_me(
     update_data = payload.model_dump(exclude_unset=True)
 
     if "email" in update_data:
-        duplicate = await db.scalar(select(User).where(User.email == update_data["email"], User.id != current_user.id))
-        if duplicate is not None:
+        # --- API PLATFORM ---
+        if await email_in_use(db, update_data["email"], exclude_user_id=current_user.id):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
 
     password = update_data.pop("password", None)
@@ -353,4 +354,3 @@ async def comment_activity(
         "message": "Comment activity retrieved",
         "data": activities[:limit],
     }
-

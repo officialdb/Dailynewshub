@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.cache import build_versioned_key, get_json, normalize_cache_fragment, set_json
 from app.core.dependencies import get_current_user, get_db
-from app.core.rate_limit import enforce_rate_limit
+from app.core.rate_limit import enforce_rate_limit, limiter
 from app.models.article import Article
 from app.models.category import Category
 from app.models.comment import Comment
@@ -339,13 +339,44 @@ from app.schemas.reaction import ReactionCreate, ReactionResponse
 from app.models.article_reaction import ArticleReaction
 from app.models.article_comment import ArticleComment
 from app.services.ai_summarizer import summarize_article
+from app.services.quota_service import check_and_increment_quota
 from app.services.text_to_speech import generate_audio
 from app.services.share_card import generate_share_card
 
 
+# --- SEC FIX SEC-012 ---
+def get_redis(request: Request):
+    """Return the request Redis client or fail closed for quota-protected endpoints."""
+
+    redis_client = getattr(request.app.state, "redis", None)
+    if redis_client is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Quota service unavailable")
+    return redis_client
+
+
 @router.get("/{id}/summary", response_model=dict[str, object])
-async def get_article_summary(id: UUID, db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+@limiter.limit("20/hour")  # --- SEC FIX SEC-006 ---
+async def get_article_summary(
+    request: Request,
+    id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis_client=Depends(get_redis),
+) -> dict[str, object]:
     """Get AI summary of an article."""
+    # --- SEC FIX SEC-012 ---
+    allowed, count, limit = await check_and_increment_quota(str(current_user.id), "ai_summary", redis_client)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "QUOTA_EXCEEDED",
+                "message": f"Daily AI summary limit of {limit} reached. Resets at midnight UTC.",
+                "limit": limit,
+                "used": count,
+            },
+        )
+
     article = await db.get(Article, id)
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
@@ -355,8 +386,28 @@ async def get_article_summary(id: UUID, db: AsyncSession = Depends(get_db)) -> d
 
 
 @router.get("/{id}/audio", response_model=dict[str, object])
-async def get_article_audio(id: UUID, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+@limiter.limit("10/hour")  # --- SEC FIX SEC-006 ---
+async def get_article_audio(
+    request: Request,
+    id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis_client=Depends(get_redis),
+) -> dict[str, object]:
     """Get audio URL for an article."""
+    # --- SEC FIX SEC-012 ---
+    allowed, count, limit = await check_and_increment_quota(str(current_user.id), "tts_audio", redis_client)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "QUOTA_EXCEEDED",
+                "message": f"Daily audio limit of {limit} reached. Resets at midnight UTC.",
+                "limit": limit,
+                "used": count,
+            },
+        )
+
     article = await db.get(Article, id)
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
@@ -477,4 +528,3 @@ async def translate_article(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Translation failed",
         )
-

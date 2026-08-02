@@ -9,11 +9,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // --- SEC FIX SEC-007 ---
+  const hasUser = !!user;
+
   useEffect(() => {
-    if (!loading && !user) {
+    console.log("[AuthGuard] loading:", loading, "hasUser:", hasUser);
+    if (!loading && !hasUser) {
+      console.log("[AuthGuard] Redirecting to login");
       router.replace("/admin/login");
     }
-  }, [user, loading, router]);
+  }, [hasUser, loading, router]);
 
   if (loading) {
     return (
@@ -23,7 +28,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  if (!hasUser) return null;
 
   return <>{children}</>;
 }

@@ -23,6 +23,9 @@ class ArticleBase(BaseModel):
     is_trending: bool = False
     view_count: int = 0
     published_at: datetime | None = None
+    location: str | None = Field(default=None, max_length=255)
+    location_state: str | None = Field(default=None, max_length=100)
+    location_country: str | None = Field(default=None, max_length=100)
 
 
 class ArticleCreate(ArticleBase):
@@ -44,6 +47,9 @@ class ArticleUpdate(BaseModel):
     is_trending: bool | None = None
     view_count: int | None = None
     published_at: datetime | None = None
+    location: str | None = Field(default=None, max_length=255)
+    location_state: str | None = Field(default=None, max_length=100)
+    location_country: str | None = Field(default=None, max_length=100)
 
 
 class ArticleResponse(ArticleBase):
@@ -59,6 +65,9 @@ class ArticleResponse(ArticleBase):
     is_pinned: bool = False
     ai_summary: str | None = None
     audio_url: str | None = None
+    location: str | None = None
+    location_state: str | None = None
+    location_country: str | None = None
 
 
 class PaginatedArticleResponse(BaseModel):

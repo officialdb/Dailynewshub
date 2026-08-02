@@ -1,139 +1,227 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { notificationsApi } from "@/lib/api";
-import type { Notification } from "@/lib/types";
+import { notificationsApi, v2ArticlesApi } from "@/lib/api";
+import type { Notification, V2Article } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
 
-type Tab = "history" | "send" | "schedule";
+function SendNotificationModal({
+  onClose,
+  onSent,
+}: {
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const { toast } = useToast();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [articleId, setArticleId] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [articles, setArticles] = useState<V2Article[]>([]);
+  const [sending, setSending] = useState(false);
 
-export default function NotificationsPage() {
-  const [tab, setTab] = useState<Tab>("history");
-
-  return (
-    <div className="max-w-max-width mx-auto p-4 lg:p-margin w-full">
-      <div className="mb-stack-lg">
-        <h1 className="font-display-lg text-display-lg text-on-surface">Notifications</h1>
-        <p className="font-body-md text-body-md text-secondary">Send, schedule, and manage push notifications</p>
-      </div>
-
-      <div className="flex gap-1 mb-6 bg-surface-container-low rounded-xl p-1 w-fit">
-        {([["history", "notifications", "History"], ["send", "send", "Send Now"], ["schedule", "schedule", "Schedule"]] as const).map(([key, icon, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${tab === key ? "bg-surface-container-lowest text-primary shadow-sm" : "text-secondary hover:text-on-surface"}`}
-          >
-            <span className="material-symbols-outlined text-[18px]">{icon}</span>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "history" && <HistoryTab />}
-      {tab === "send" && <SendTab />}
-      {tab === "schedule" && <ScheduleTab />}
-    </div>
-  );
-}
-
-function HistoryTab() {
-  const { toast, confirm } = useToast();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchNotifications = useCallback(async (p: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await notificationsApi.list(p, 10);
-      setNotifications(res.data.items);
-      setTotal(res.data.total);
-      setPages(res.data.pages);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load notifications");
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    // Fetch recent articles to link
+    v2ArticlesApi.list({ limit: 50 }).then(res => setArticles(res.data.items)).catch(console.error);
   }, []);
 
-  useEffect(() => { fetchNotifications(page); }, [page, fetchNotifications]);
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || !body.trim()) return;
 
-  async function handleDelete(id: string) {
-    if (!await confirm("Delete this notification?")) return;
+    setSending(true);
     try {
-      await notificationsApi.delete(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      setTotal(t => t - 1);
+      const payload: any = { title, body };
+      if (articleId) payload.article_id = articleId;
+
+      if (scheduledAt) {
+        payload.scheduled_at = new Date(scheduledAt).toISOString();
+        await notificationsApi.schedule(payload);
+        toast("Push notification scheduled", "success");
+      } else {
+        await notificationsApi.send(payload);
+        toast("Push notification sent to all devices", "success");
+      }
+      onSent();
+      onClose();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Delete failed", "error");
+      toast(err instanceof Error ? err.message : "Failed to send notification", "error");
+    } finally {
+      setSending(false);
     }
   }
 
   return (
-    <div>
-      {error && (
-        <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-error-container/20 border border-error/30 rounded-xl text-error text-sm">
-          <span className="material-symbols-outlined text-[18px]">error</span>{error}
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 w-full max-w-lg flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+          <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Send Push Notification</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Blast a notification to user devices</p>
         </div>
-      )}
+        <form onSubmit={handleSend} className="flex flex-col">
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">Title</label>
+              <input
+                type="text"
+                required
+                maxLength={100}
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-zinc-500 dark:focus:border-zinc-600 transition-colors"
+                placeholder="Breaking News..."
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">Body</label>
+              <textarea
+                required
+                maxLength={255}
+                rows={3}
+                value={body}
+                onChange={e => setBody(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-zinc-500 dark:focus:border-zinc-600 transition-colors"
+                placeholder="What happened?"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">Link to Article (Optional)</label>
+              <select
+                value={articleId}
+                onChange={e => setArticleId(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-zinc-500 dark:focus:border-zinc-600 transition-colors"
+              >
+                <option value="">-- No Article --</option>
+                {articles.map(a => (
+                  <option key={a.id} value={a.id}>{a.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">Schedule for Later (Optional)</label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={e => setScheduledAt(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-zinc-500 dark:focus:border-zinc-600 transition-colors"
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Leave blank to send immediately</p>
+            </div>
+          </div>
+          <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-2 mt-4">
+            <button type="button" onClick={onClose} className="rounded-lg border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-800 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={sending} className="flex items-center gap-2 rounded-lg bg-zinc-900 dark:bg-white px-4 py-2 text-xs font-bold text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50">
+              <span className="material-symbols-outlined text-[18px]">send</span>
+              {sending ? "Sending..." : (scheduledAt ? "Schedule" : "Send Now")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+export default function PushNotificationsDashboard() {
+  const { toast, confirm } = useToast();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const loadNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await notificationsApi.list(page, 20);
+      setNotifications(res.data.items);
+      setTotal(res.data.total);
+    } catch (e) {
+      console.error(e);
+      toast("Failed to load notifications", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, toast]);
+
+  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+
+  async function handleDelete(id: string) {
+    if (!await confirm("Delete this notification record?")) return;
+    try {
+      await notificationsApi.delete(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setTotal(t => t - 1);
+    } catch (e: any) {
+      toast(e.message, "error");
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Push Notifications</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Manage and blast system-wide push notifications to devices</p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 rounded-lg bg-zinc-900 dark:bg-white px-4 py-2 text-xs font-bold text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-sm cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[18px]">campaign</span>
+          Send Blast
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface-container-low/50 border-b border-outline-variant">
-                <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Title</th>
-                <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Body</th>
-                <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Status</th>
-                <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider">Date</th>
-                <th className="px-stack-md py-4 text-label-sm text-outline uppercase tracking-wider text-right">Actions</th>
+              <tr className="bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Content</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Time</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant">
+            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-stack-md py-4"><div className="h-4 w-32 bg-outline-variant rounded"></div></td>
-                    <td className="px-stack-md py-4"><div className="h-4 w-48 bg-outline-variant rounded"></div></td>
-                    <td className="px-stack-md py-4"><div className="h-4 w-16 bg-outline-variant rounded"></div></td>
-                    <td className="px-stack-md py-4"><div className="h-4 w-24 bg-outline-variant rounded"></div></td>
-                    <td></td>
-                  </tr>
-                ))
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-xs text-zinc-500 dark:text-zinc-400">Loading...</td>
+                </tr>
               ) : notifications.length === 0 ? (
-                <tr><td colSpan={5} className="px-stack-md py-12 text-center text-secondary">No notifications sent yet.</td></tr>
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-xs text-zinc-500 dark:text-zinc-400">No push notifications found.</td>
+                </tr>
               ) : (
                 notifications.map(n => (
-                  <tr key={n.id} className="hover:bg-surface-container/40 transition-colors group">
-                    <td className="px-stack-md py-4">
-                      <p className="font-medium text-on-surface text-sm">{n.title}</p>
-                      {n.article_title && <p className="text-xs text-secondary truncate">{n.article_title}</p>}
+                  <tr key={n.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors">
+                    <td className="px-4 py-4">
+                      <p className="text-xs font-semibold text-zinc-900 dark:text-white">{n.title}</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 max-w-md truncate">{n.body}</p>
+                      {n.article_title && <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">🔗 {n.article_title}</p>}
                     </td>
-                    <td className="px-stack-md py-4 text-sm text-secondary max-w-xs truncate">{n.body}</td>
-                    <td className="px-stack-md py-4">
+                    <td className="px-4 py-4">
                       {n.is_sent ? (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold uppercase bg-emerald-50 text-emerald-600">Sent</span>
+                        <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          Sent
+                        </span>
                       ) : n.scheduled_at ? (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold uppercase bg-amber-50 text-amber-600">Scheduled</span>
+                        <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                          Scheduled
+                        </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold uppercase bg-surface-container-high text-on-surface-variant">Draft</span>
+                        <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                          Failed
+                        </span>
                       )}
                     </td>
-                    <td className="px-stack-md py-4 text-sm text-secondary">
-                      {n.sent_at
-                        ? new Date(n.sent_at).toLocaleString()
-                        : n.scheduled_at
-                          ? `Scheduled: ${new Date(n.scheduled_at).toLocaleString()}`
-                          : new Date(n.created_at).toLocaleString()
-                      }
+                    <td className="px-4 py-4 text-xs text-zinc-500 dark:text-zinc-400">
+                      {n.sent_at ? new Date(n.sent_at).toLocaleString() : (n.scheduled_at ? `For: ${new Date(n.scheduled_at).toLocaleString()}` : "—")}
                     </td>
-                    <td className="px-stack-md py-4 text-right">
-                      <button onClick={() => handleDelete(n.id)} className="p-1.5 rounded-lg hover:bg-error-container/20 text-outline hover:text-error transition-colors cursor-pointer">
+                    <td className="px-4 py-4 text-right">
+                      <button onClick={() => handleDelete(n.id)} className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer" title="Delete record">
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>
                     </td>
@@ -143,167 +231,9 @@ function HistoryTab() {
             </tbody>
           </table>
         </div>
-
-        <div className="px-stack-md py-stack-md border-t border-outline-variant flex items-center justify-between bg-surface-container-low/30">
-          <p className="text-label-md text-secondary">
-            Page <span className="font-bold text-on-surface">{page}</span> of <span className="font-bold text-on-surface">{pages}</span> · {total} total
-          </p>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-outline hover:bg-surface-container transition-colors disabled:opacity-40 cursor-pointer">
-              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
-            </button>
-            {Array.from({ length: Math.min(pages, 5) }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold cursor-pointer transition-colors ${p === page ? "bg-primary text-on-primary" : "border border-outline-variant text-on-surface-variant hover:bg-surface-container"}`}>{p}</button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page >= pages} className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-outline hover:bg-surface-container transition-colors disabled:opacity-40 cursor-pointer">
-              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
-  );
-}
 
-function SendTab() {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [articleId, setArticleId] = useState("");
-  const [segment, setSegment] = useState("all");
-  const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    setSending(true);
-    setResult(null);
-    try {
-      const payload: { title: string; body: string; article_id?: string; segment?: string } = { title, body, segment };
-      if (articleId.trim()) payload.article_id = articleId.trim();
-      const res = await notificationsApi.send(payload);
-      const total = (res.data as { total_tokens?: number }).total_tokens ?? res.data.sent_count;
-      const msg = total === 0
-        ? `No device tokens registered for "${segment}" segment. Users need to open the mobile app first.`
-        : res.data.sent_count < total
-          ? `Sent to ${res.data.sent_count}/${total} devices (${segment}). Some deliveries failed — check Firebase credentials.`
-          : `Sent to ${res.data.sent_count} devices (${segment}).`;
-      setResult({ success: true, message: msg });
-      setTitle("");
-      setBody("");
-      setArticleId("");
-    } catch (err: unknown) {
-      setResult({ success: false, message: err instanceof Error ? err.message : "Send failed" });
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <div className="max-w-2xl">
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
-        <h3 className="font-headline-sm text-headline-sm text-on-surface mb-4">Send Push Notification</h3>
-        {result && (
-          <div className={`mb-4 flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${result.success ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-error-container/20 border border-error/30 text-error"}`}>
-            <span className="material-symbols-outlined text-[18px]">{result.success ? "check_circle" : "error"}</span>
-            {result.message}
-          </div>
-        )}
-        <form onSubmit={handleSend} className="space-y-4">
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Title</label>
-            <input type="text" required value={title} onChange={e => setTitle(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Notification title" />
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Body</label>
-            <textarea required value={body} onChange={e => setBody(e.target.value)} rows={3} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all resize-none" placeholder="Notification message..." />
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Target Audience</label>
-            <select value={segment} onChange={e => setSegment(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all">
-              <option value="all">All Users</option>
-              <option value="active">Active Users Only</option>
-              <option value="admins">Admins Only</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Article ID (optional)</label>
-            <input type="text" value={articleId} onChange={e => setArticleId(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Link to article UUID" />
-          </div>
-          <button type="submit" disabled={sending} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
-            <span className="material-symbols-outlined text-[18px]">send</span>
-            {sending ? "Sending..." : `Send to ${segment === "all" ? "All Users" : segment === "active" ? "Active Users" : "Admins"}`}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function ScheduleTab() {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [articleId, setArticleId] = useState("");
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  async function handleSchedule(e: React.FormEvent) {
-    e.preventDefault();
-    setSending(true);
-    setResult(null);
-    try {
-      const payload: { title: string; body: string; scheduled_at: string; article_id?: string } = {
-        title,
-        body,
-        scheduled_at: new Date(scheduledAt).toISOString(),
-      };
-      if (articleId.trim()) payload.article_id = articleId.trim();
-      const res = await notificationsApi.schedule(payload);
-      setResult({ success: true, message: `Notification scheduled for ${new Date(res.data.scheduled_at).toLocaleString()}.` });
-      setTitle("");
-      setBody("");
-      setArticleId("");
-      setScheduledAt("");
-    } catch (err: unknown) {
-      setResult({ success: false, message: err instanceof Error ? err.message : "Schedule failed" });
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <div className="max-w-2xl">
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg card-shadow">
-        <h3 className="font-headline-sm text-headline-sm text-on-surface mb-4">Schedule Push Notification</h3>
-        {result && (
-          <div className={`mb-4 flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${result.success ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-error-container/20 border border-error/30 text-error"}`}>
-            <span className="material-symbols-outlined text-[18px]">{result.success ? "check_circle" : "error"}</span>
-            {result.message}
-          </div>
-        )}
-        <form onSubmit={handleSchedule} className="space-y-4">
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Title</label>
-            <input type="text" required value={title} onChange={e => setTitle(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Notification title" />
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Body</label>
-            <textarea required value={body} onChange={e => setBody(e.target.value)} rows={3} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all resize-none" placeholder="Notification message..." />
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Schedule Date & Time</label>
-            <input type="datetime-local" required value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all" />
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Article ID (optional)</label>
-            <input type="text" value={articleId} onChange={e => setArticleId(e.target.value)} className="w-full border border-outline-variant rounded-xl p-3 bg-surface-bright text-body-md focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Link to article UUID" />
-          </div>
-          <button type="submit" disabled={sending} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
-            <span className="material-symbols-outlined text-[18px]">schedule</span>
-            {sending ? "Scheduling..." : "Schedule Notification"}
-          </button>
-        </form>
-      </div>
+      {showModal && <SendNotificationModal onClose={() => setShowModal(false)} onSent={loadNotifications} />}
     </div>
   );
 }

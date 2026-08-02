@@ -121,6 +121,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
       await _socket?.close();
 
       final apiUri = Uri.parse(ApiConfig.baseUrl);
+      // --- SEC FIX SEC-003 ---
       final socketUri = apiUri.replace(
         scheme: apiUri.scheme == 'https' ? 'wss' : 'ws',
         path: '/api/v1/ws/news-feed',

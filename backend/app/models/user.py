@@ -16,9 +16,10 @@ if TYPE_CHECKING:
     from app.models.bookmark import Bookmark
     from app.models.device_token import DeviceToken
     from app.models.comment import Comment
-    
+
     # --- NEW ADDITION ---
     from app.models.followed_channel import FollowedChannel
+    from app.models.permission import UserRole
 
 
 class User(Base):
@@ -28,9 +29,14 @@ class User(Base):
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -63,6 +69,12 @@ class User(Base):
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     
     followed_channels: Mapped[list[FollowedChannel]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    user_roles: Mapped[list[UserRole]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",

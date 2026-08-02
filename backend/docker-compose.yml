@@ -1,103 +1,219 @@
+# --- DOCKER FIX ---
+networks:
+  dailynewshub-internal:
+    driver: bridge
+    internal: false
+  dailynewshub-proxy:
+    driver: bridge
 
+# --- DOCKER FIX ---
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+# --- DOCKER FIX ---
 services:
-  db:
-    image: postgres:16
-    env_file:
-      - .env.docker
+  # --- DOCKER FIX ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: dailynewshub_postgres
+    restart: unless-stopped
     environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dailynewshub}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-dailynewshub}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
-      - db-data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    networks:
+      - dailynewshub-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
 
+  # --- DOCKER FIX ---
   redis:
     image: redis:7-alpine
-    ports:
-      - "6380:6379"
+    container_name: dailynewshub_redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: >
+      sh -c 'redis-server
+      --requirepass "$$REDIS_PASSWORD"
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes'
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    networks:
+      - dailynewshub-internal
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
 
+  # --- DOCKER FIX ---
   backend:
-    image: ${BACKEND_IMAGE}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: dailynewshub_backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dailynewshub}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
-      FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
-      UPLOADS_DIR: uploads
-      DEBUG: "False"
-    env_file:
-      - .env.docker
     volumes:
-      - uploads-data:/app/uploads
-      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - uploads_data:/app/uploads
+    networks:
+      - dailynewshub-internal
+      - dailynewshub-proxy
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=100M,mode=1777
 
-  celery-worker:
-    image: ${BACKEND_IMAGE}
-    command: celery -A app.core.celery_app worker --loglevel=info
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dailynewshub}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
-      FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
-      UPLOADS_DIR: uploads
-      DEBUG: "False"
-    env_file:
-      - .env.docker
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+  # --- DOCKER FIX ---
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: dailynewshub_celery_worker
     restart: unless-stopped
-
-  celery-beat:
-    image: ${BACKEND_IMAGE}
-    command: celery -A app.core.celery_app beat --loglevel=info --schedule=/var/lib/celery/celerybeat-schedule
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dailynewshub}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
-      FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
-      UPLOADS_DIR: uploads
-      DEBUG: "False"
+    command: celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=2
     env_file:
-      - .env.docker
+      - ./.env
     volumes:
-      - celery-beat-data:/var/lib/celery
+      - uploads_data:/app/uploads
+    networks:
+      - dailynewshub-internal
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=100M,mode=1777
 
-volumes:
-  db-data:
-  celery-beat-data:
-  uploads-data:
+  # --- DOCKER FIX ---
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: dailynewshub_celery_beat
+    restart: unless-stopped
+    command: celery -A app.core.celery_app:celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    env_file:
+      - ./.env
+    networks:
+      - dailynewshub-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=100M,mode=1777

@@ -5,6 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+
+# --- SEC FIX SEC-006 ---
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _client_identity(request: Request) -> str:

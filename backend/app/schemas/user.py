@@ -20,6 +20,8 @@ class UserCreate(UserBase):
     """Payload for registering a new user."""
 
     password: str = Field(min_length=8, max_length=255)
+    country: str | None = Field(default=None, max_length=100, description="User's nationality / country of origin")
+    state: str | None = Field(default=None, max_length=100, description="User's region or state")
 
 
 class UserUpdate(BaseModel):
@@ -31,6 +33,8 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=255)
     is_active: bool | None = None
     is_admin: bool | None = None
+    country: str | None = Field(default=None, max_length=100)
+    state: str | None = Field(default=None, max_length=100)
 
 
 class UserResponse(UserBase):
@@ -41,6 +45,8 @@ class UserResponse(UserBase):
     id: UUID
     is_active: bool
     is_admin: bool
+    country: str | None = None
+    state: str | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -15,6 +15,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _stateController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
@@ -25,6 +27,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _countryController.dispose();
+    _stateController.dispose();
     super.dispose();
   }
 
@@ -49,11 +53,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final lastName = _lastNameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final country = _countryController.text.trim();
+    final stateName = _stateController.text.trim();
 
     if (firstName.isEmpty ||
         lastName.isEmpty ||
         email.isEmpty ||
-        password.isEmpty) {
+        password.isEmpty ||
+        country.isEmpty ||
+        stateName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
       );
@@ -70,7 +78,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final authNotifier = ref.read(authProvider.notifier);
     final success =
-        await authNotifier.register(firstName, lastName, email, password);
+        await authNotifier.register(firstName, lastName, email, password, country: country, stateName: stateName);
 
     if (!mounted) return;
 
@@ -150,6 +158,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               label: 'EMAIL',
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    context,
+                    controller: _countryController,
+                    label: 'NATIONALITY / COUNTRY',
+                    icon: Icons.public,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    context,
+                    controller: _stateController,
+                    label: 'STATE / REGION',
+                    icon: Icons.map,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             _buildTextField(

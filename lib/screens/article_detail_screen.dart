@@ -11,6 +11,7 @@ import '../models/article.dart';
 import '../providers/auth_provider.dart';
 import '../providers/news_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/analytics_service.dart';
 import '../widgets/article_image.dart';
 import '../widgets/profile_avatar.dart';
 
@@ -27,10 +28,15 @@ class ArticleDetailScreen extends ConsumerStatefulWidget {
 class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   final GlobalKey _commentSectionKey = GlobalKey();
   final TextEditingController _commentController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final Stopwatch _stopwatch = Stopwatch();
+  double _maxScrollDepth = 0.0;
 
   @override
   void initState() {
     super.initState();
+    _stopwatch.start();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref
@@ -39,10 +45,36 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
     });
   }
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+    final currentScroll = _scrollController.position.pixels;
+    final depth = (currentScroll / maxScroll) * 100;
+    if (depth > _maxScrollDepth) {
+      _maxScrollDepth = depth;
+    }
+  }
+
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _stopwatch.stop();
+    _submitAnalytics();
     _commentController.dispose();
     super.dispose();
+  }
+
+  void _submitAnalytics() {
+    final timeSpent = _stopwatch.elapsed.inSeconds;
+    if (_maxScrollDepth >= 20.0 || timeSpent >= 5) {
+      AnalyticsService().submitArticleAnalytics(
+        widget.article.id,
+        _maxScrollDepth.clamp(0.0, 100.0),
+        timeSpent,
+      );
+    }
   }
 
   @override
@@ -56,6 +88,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
     return Scaffold(
       appBar: _buildAppBar(context),
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           children: [
             _buildHeroSection(),
@@ -181,6 +214,46 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                 ?.copyWith(fontSize: 32, height: 1.1),
           ),
           const SizedBox(height: 24),
+          if (widget.article.correctionNotice != null && widget.article.correctionNotice!.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.amber),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'CORRECTION',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[800],
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.article.correctionNotice!,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            height: 1.5,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

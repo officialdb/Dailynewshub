@@ -19,6 +19,10 @@ class Article {
     this.isTrending = false,
     this.viewCount = 0,
     this.isBookmarked = false,
+    this.location,
+    this.locationState,
+    this.locationCountry,
+    this.correctionNotice,
   });
 
   final String id;
@@ -40,6 +44,10 @@ class Article {
   final bool isTrending;
   final int viewCount;
   final bool isBookmarked;
+  final String? location;
+  final String? locationState;
+  final String? locationCountry;
+  final String? correctionNotice;
 
   String get displayContent {
     final trimmedContent = content.trim();
@@ -75,6 +83,10 @@ class Article {
     bool? isTrending,
     int? viewCount,
     bool? isBookmarked,
+    String? location,
+    String? locationState,
+    String? locationCountry,
+    String? correctionNotice,
   }) {
     return Article(
       id: id ?? this.id,
@@ -96,6 +108,10 @@ class Article {
       isTrending: isTrending ?? this.isTrending,
       viewCount: viewCount ?? this.viewCount,
       isBookmarked: isBookmarked ?? this.isBookmarked,
+      location: location ?? this.location,
+      locationState: locationState ?? this.locationState,
+      locationCountry: locationCountry ?? this.locationCountry,
+      correctionNotice: correctionNotice ?? this.correctionNotice,
     );
   }
 
@@ -132,6 +148,10 @@ class Article {
       isFeatured: json['is_featured'] == true,
       isTrending: json['is_trending'] == true,
       viewCount: _intValue(json['view_count']) ?? 0,
+      location: _stringValue(json['location']),
+      locationState: _stringValue(json['location_state']),
+      locationCountry: _stringValue(json['location_country']),
+      correctionNotice: _stringValue(json['correction_notice']),
     );
   }
 

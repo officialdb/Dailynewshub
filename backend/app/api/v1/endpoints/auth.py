@@ -6,19 +6,22 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from jose import JWTError
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db
-from app.core.rate_limit import enforce_rate_limit
+from app.core.config import get_settings
+from app.core.dependencies import get_db, is_token_blacklisted, revoke_token
+from app.core.email_registry import email_in_use
+from app.core.rate_limit import enforce_rate_limit, limiter
 from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, verify_token, validate_password_strength
 from app.models.user import User
 from app.schemas.user import RefreshTokenRequest, TokenResponse, UserCreate, UserResponse
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -52,28 +55,52 @@ def _token_payload(user: User) -> dict[str, Any]:
     }
 
 
-async def _blacklist_token(request: Request, token: str) -> dict[str, Any]:
-    """Blacklist a JWT in Redis until it expires."""
+# --- SEC FIX SEC-007 ---
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Set JWTs as httpOnly cookies for browser clients."""
+
+    is_production = settings.ENVIRONMENT == "production"
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path="/api/v1/auth/refresh-token",
+    )
+
+
+# --- SEC FIX SEC-001 ---
+async def _blacklist_token(request: Request, token: str, db: AsyncSession) -> dict[str, Any]:
+    """Blacklist a JWT in Redis and PostgreSQL until it expires."""
 
     payload = verify_token(token)
     redis_client = getattr(request.app.state, "redis", None)
-    if redis_client is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Redis is not available")
-
     expires_at = datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
     ttl = max(1, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
-    await redis_client.setex(f"blacklist:{payload['jti']}", ttl, "1")
+    await revoke_token(token, ttl, db, redis_client)
     return payload
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/hour")  # --- SEC FIX SEC-006 ---
 async def register(request: Request, user_in: UserCreate, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Register a new user account."""
 
     await enforce_rate_limit(request, scope="auth:register", limit=10, window_seconds=600)
+    # --- API PLATFORM ---
     validate_password_strength(user_in.password)
-    existing_user = await db.scalar(select(User).where(User.email == user_in.email))
-    if existing_user is not None:
+    if await email_in_use(db, user_in.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
 
     user = User(
@@ -81,6 +108,8 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
         email=user_in.email,
         password_hash=get_password_hash(user_in.password),
         avatar_url=user_in.avatar_url,
+        country=user_in.country,
+        state=user_in.state,
     )
     db.add(user)
     await db.commit()
@@ -90,10 +119,17 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
 
 
 @router.post("/login")
-async def login(request: Request, credentials: LoginRequest, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")  # --- SEC FIX SEC-006 ---
+async def login(
+    request: Request,
+    response: Response,
+    credentials: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
     """Authenticate a user and issue fresh JWT tokens."""
 
-    await enforce_rate_limit(request, scope="auth:login", limit=20, window_seconds=300)
+    # --- SEC FIX SEC-006 ---
+    await enforce_rate_limit(request, scope="auth:login", limit=10, window_seconds=60)
     result = await db.execute(select(User).where(User.email == credentials.email))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(credentials.password, user.password_hash):
@@ -102,38 +138,61 @@ async def login(request: Request, credentials: LoginRequest, db: AsyncSession = 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
 
     payload = _token_payload(user)
-    return {"success": True, "message": "Login successful", "data": payload}
+    # --- SEC FIX SEC-007 ---
+    _set_auth_cookies(response, payload["tokens"]["access_token"], payload["tokens"]["refresh_token"])
+    return {"success": True, "message": "Login successful", "data": {"user": payload["user"]}}
 
 
 @router.post("/logout")
-async def logout(request: Request, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+async def logout(
+    request: Request,
+    response: Response,
+    authorization: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
     """Revoke the presented access token."""
 
     await enforce_rate_limit(request, scope="auth:logout", limit=60, window_seconds=900)
+    # --- SEC FIX SEC-007 ---
     header = authorization or request.headers.get("Authorization")
-    if not header or not header.startswith("Bearer "):
+    token = request.cookies.get("access_token")
+    if not token and header and header.startswith("Bearer "):
+        token = header.split(" ", 1)[1].strip()
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header missing")
 
-    token = header.split(" ", 1)[1].strip()
     try:
-        await _blacklist_token(request, token)
+        await _blacklist_token(request, token, db)
     except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+    # --- SEC FIX SEC-007 ---
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/api/v1/auth/refresh-token")
     return {"success": True, "message": "Logout successful", "data": {"revoked": True}}
 
 
 @router.post("/refresh-token")
-async def refresh_token(request: Request, payload: RefreshTokenRequest, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+async def refresh_token(
+    request: Request,
+    response: Response,
+    payload: RefreshTokenRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
     """Exchange a valid refresh token for a new token pair."""
 
     await enforce_rate_limit(request, scope="auth:refresh", limit=60, window_seconds=900)
+    # --- SEC FIX SEC-007 ---
+    refresh_value = payload.refresh_token if payload else request.cookies.get("refresh_token")
+    if not refresh_value:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token missing")
     try:
-        token_payload = verify_token(payload.refresh_token, expected_type="refresh")
+        token_payload = verify_token(refresh_value, expected_type="refresh")
     except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token") from exc
 
     redis_client = getattr(request.app.state, "redis", None)
-    if redis_client is not None and await redis_client.get(f"blacklist:{token_payload.get('jti')}"):
+    # --- SEC FIX SEC-001 ---
+    if await is_token_blacklisted(refresh_value, db, redis_client):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token has been revoked")
 
     subject = token_payload.get("sub")
@@ -153,7 +212,13 @@ async def refresh_token(request: Request, payload: RefreshTokenRequest, db: Asyn
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
 
     payload_data = _token_payload(user)
-    return {"success": True, "message": "Token refreshed successfully", "data": payload_data}
+    # --- SEC FIX SEC-001 ---
+    exp = token_payload.get("exp", 0)
+    ttl = max(1, int(exp - datetime.now(timezone.utc).timestamp()))
+    await revoke_token(refresh_value, ttl, db, redis_client)
+    # --- SEC FIX SEC-007 ---
+    _set_auth_cookies(response, payload_data["tokens"]["access_token"], payload_data["tokens"]["refresh_token"])
+    return {"success": True, "message": "Token refreshed successfully", "data": {"user": payload_data["user"]}}
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -163,6 +228,7 @@ class ForgotPasswordRequest(BaseModel):
 
 
 @router.post("/forgot-password")
+@limiter.limit("3/hour")  # --- SEC FIX SEC-006 ---
 async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Request a password reset for an account."""
 
@@ -183,4 +249,3 @@ async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: 
         "message": f"Password reset instructions and verification code sent to {payload.email}.",
         "data": {"email": payload.email, "status": "sent"},
     }
-

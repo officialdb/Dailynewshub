@@ -10,12 +10,13 @@ import MainWrapper from "@/components/MainWrapper";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/admin/login";
+  const isDeveloperDashboard = pathname === "/admin/api-dashboard";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
-  if (isLoginPage) {
-    return <main className="min-h-screen flex flex-col flex-1 bg-surface">{children}</main>;
+  if (isLoginPage || isDeveloperDashboard) {
+    return <main className="min-h-screen flex flex-col flex-1 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">{children}</main>;
   }
 
   return (

@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import bump_version
+from app.core.email_registry import email_in_use
 from app.core.dependencies import get_current_admin, get_db
 from app.models.article import Article
 from app.models.category import Category
@@ -70,8 +71,8 @@ async def create_user(
 ) -> dict[str, object]:
     """Create a new user account as an admin."""
 
-    existing = await db.scalar(select(User).where(User.email == payload.email))
-    if existing is not None:
+    # --- API PLATFORM ---
+    if await email_in_use(db, payload.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
 
     from app.core.security import get_password_hash
@@ -105,8 +106,8 @@ async def update_user(
 
     update_data = payload.model_dump(exclude_unset=True)
     if "email" in update_data:
-        duplicate = await db.scalar(select(User).where(User.email == update_data["email"], User.id != user_id))
-        if duplicate is not None:
+        # --- API PLATFORM ---
+        if await email_in_use(db, update_data["email"], exclude_user_id=user_id):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
 
     password = update_data.pop("password", None)
@@ -594,4 +595,3 @@ async def admin_list_categories(
         for r in rows
     ]
     return {"success": True, "message": "Categories retrieved successfully", "data": items}
-

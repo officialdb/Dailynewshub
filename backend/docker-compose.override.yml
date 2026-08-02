@@ -1,12 +1,26 @@
+# --- DOCKER FIX ---
+# docker-compose.override.yml - dev overrides only, never deploy to production.
+
+# --- DOCKER FIX ---
 services:
   backend:
-    build: .
-    image: backend:local
+    volumes:
+      - ./:/app
+      - uploads_data:/app/uploads
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DEBUG: "true"
+      ENVIRONMENT: development
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
 
-  celery-worker:
-    build: .
-    image: backend:local
+  postgres:
+    ports:
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
 
-  celery-beat:
-    build: .
-    image: backend:local
+  redis:
+    ports:
+      - "${REDIS_HOST_PORT:-16379}:6379"

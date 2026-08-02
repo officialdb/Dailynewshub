@@ -134,14 +134,18 @@ class AuthNotifier extends Notifier<AuthState> {
     String firstName,
     String lastName,
     String email,
-    String password,
-  ) async {
+    String password, {
+    String? country,
+    String? stateName,
+  }) async {
     state = state.copyWith(isLoading: true);
     try {
       final session = await _apiService.register(
         name: '$firstName $lastName'.trim(),
         email: email,
         password: password,
+        country: country,
+        state: stateName,
       );
       final user = session.user.copyWith(
         accessToken: session.accessToken,

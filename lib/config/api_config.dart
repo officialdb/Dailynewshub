@@ -17,11 +17,11 @@ class ApiConfig {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
       case TargetPlatform.iOS:
-        return 'http://13.63.23.95:8000/api/v1';
+        return 'http://13.63.23.95:8000/api/v2';
       case TargetPlatform.macOS:
-        return 'http://localhost:8000/api/v1';
+        return 'http://localhost:8000/api/v2';
       default:
-        return 'http://127.0.0.1:8000/api/v1';
+        return 'http://127.0.0.1:8000/api/v2';
     }
   }
 }

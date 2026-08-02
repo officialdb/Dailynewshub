@@ -1,0 +1,13 @@
+# --- DOCKER FIX ---
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+.git/
+*.md
+.vscode/
+.idea/
+coverage/
+.nyc_output/
+*.log

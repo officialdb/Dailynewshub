@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { articlesApi } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { articlesApi, developerAuthApi, setDeveloperTokens } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 interface DisplayNews {
   id: string;
@@ -97,12 +99,114 @@ const typingPhrases = [
 ];
 
 export default function LandingPage() {
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [newsItems, setNewsItems] = useState<DisplayNews[]>(fallbackArticles);
   const [loadingBackend, setLoadingBackend] = useState(true);
   const [usingBackendData, setUsingBackendData] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // API Key modal & Registration state
+  const auth = useAuth();
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [modalTab, setModalTab] = useState<"signup" | "signin">("signup");
+  const [developerSessionEmail, setDeveloperSessionEmail] = useState<string | null>(null);
+
+  // Extended Profile Fields
+  const [regFirstName, setRegFirstName] = useState("");
+  const [regLastName, setRegLastName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regCountry, setRegCountry] = useState("United States");
+  const [regState, setRegState] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [regRole, setRegRole] = useState("api_developer");
+
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [keyCopied, setKeyCopied] = useState(false);
+
+  useEffect(() => {
+    const storedDeveloper = localStorage.getItem("developer_user");
+    if (!storedDeveloper) return;
+    try {
+      const parsed = JSON.parse(storedDeveloper) as { email?: string };
+      setDeveloperSessionEmail(parsed.email ?? null);
+    } catch {
+      setDeveloperSessionEmail(null);
+    }
+  }, []);
+
+  const isAuthenticated = !!auth?.token || !!developerSessionEmail;
+
+  // Password strength calculation
+  const passLengthOk = regPassword.length >= 8;
+  const passUpperLowerOk = /[A-Z]/.test(regPassword) && /[a-z]/.test(regPassword);
+  const passNumberOk = /[0-9]/.test(regPassword);
+  const passSpecialOk = /[^A-Za-z0-9]/.test(regPassword);
+  const passScore = (passLengthOk ? 1 : 0) + (passUpperLowerOk ? 1 : 0) + (passNumberOk ? 1 : 0) + (passSpecialOk ? 1 : 0);
+
+  const passwordsMatch = regPassword === regConfirmPassword || regConfirmPassword === "";
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthError(null);
+
+    if (regPassword !== regConfirmPassword) {
+      setAuthError("Passwords do not match. Please verify your password.");
+      return;
+    }
+    if (regPassword.length < 8) {
+      setAuthError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const res = await developerAuthApi.register({
+        name: `${regFirstName.trim()} ${regLastName.trim()}`.trim(),
+        email: regEmail,
+        password: regPassword,
+        company_name: regRole,
+        website: null,
+        what_are_you_building: [regPhone, regCountry, regState].filter(Boolean).join(" | ") || null,
+      });
+      if (res.data?.id) {
+        setModalTab("signin");
+        setRevealedKey("__registered__");
+      }
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : "Registration failed. Please check your inputs.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      const loginRes = await developerAuthApi.login({ email: regEmail, password: regPassword });
+      const tokens = loginRes.data;
+      // --- SEC FIX SEC-007 ---
+      if (tokens?.developer) {
+        setDeveloperTokens();
+        localStorage.setItem("developer_user", JSON.stringify(tokens.developer));
+        setDeveloperSessionEmail(tokens.developer.email);
+        setShowApiKeyModal(false);
+        router.push("/developer/dashboard");
+      }
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : "Login failed. Check your credentials.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
 
   // Typing effect state
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -199,19 +303,27 @@ export default function LandingPage() {
           </div>
 
           {/* Desktop Nav links */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold uppercase tracking-wider text-zinc-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#live-feed" className="hover:text-white transition-colors">Headlines</a>
+            <a href="/developer" className="hover:text-white transition-colors">For Developers</a>
             <a href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Get App</a>
-            <a href="#reviews" className="hover:text-white transition-colors">Reviews</a>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <a
+              href="/developer/register"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-bold text-[11px] uppercase tracking-wider transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+            >
+              <i className="fa fa-key text-xs"></i>
+              <span>Get Access</span>
+            </a>
+
             <a
               href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
             >
               <i className="fa fa-mobile text-xs sm:text-sm"></i>
               <span>Get App</span>
@@ -243,23 +355,23 @@ export default function LandingPage() {
               onClick={() => setMobileMenuOpen(false)}
               className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
             >
-              <i className="fa fa-newspaper-o text-zinc-500 mr-2.5"></i>Today&apos;s Headlines
+              <i className="fa fa-newspaper-o text-zinc-500 mr-2.5"></i>Headlines
+            </a>
+            <a
+              href="/developer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
+            >
+              <i className="fa fa-code text-zinc-500 mr-2.5"></i>For Developers
             </a>
             <a
               href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5 border-b border-zinc-800/50"
-            >
-              <i className="fa fa-download text-zinc-500 mr-2.5"></i>Download APK (Android)
-            </a>
-            <a
-              href="#reviews"
-              onClick={() => setMobileMenuOpen(false)}
               className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white py-1.5"
             >
-              <i className="fa fa-star text-zinc-500 mr-2.5"></i>Reader Reviews
+              <i className="fa fa-download text-zinc-500 mr-2.5"></i>Get App
             </a>
           </div>
         )}
@@ -269,7 +381,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden pt-10 pb-16 sm:pt-20 sm:pb-28 border-b border-zinc-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           {/* Announcement Pill */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-zinc-900 border border-zinc-700 shadow-sm mb-6 sm:mb-8 text-[11px] sm:text-xs font-semibold text-zinc-300 max-w-full">
+          <div data-aos="fade-down" className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-zinc-900 border border-zinc-700 shadow-sm mb-6 sm:mb-8 text-[11px] sm:text-xs font-semibold text-zinc-300 max-w-full">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
             <span>Over 2,000,000+ Readers</span>
             <span className="hidden sm:inline text-zinc-600">|</span>
@@ -277,7 +389,7 @@ export default function LandingPage() {
           </div>
 
           {/* Main Headline with Typing Effect */}
-          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-tight sm:leading-[1.15] min-h-[120px] sm:min-h-[160px]">
+          <h1 data-aos="fade-up" className="text-3xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-tight sm:leading-[1.15] min-h-[120px] sm:min-h-[160px]">
             Stay Informed with <br className="hidden sm:inline" />
             <span className="text-zinc-400 font-extrabold inline-block">
               {typedText}
@@ -285,12 +397,12 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          <p className="mt-4 sm:mt-6 text-sm sm:text-xl text-zinc-400 max-w-3xl mx-auto font-normal leading-relaxed px-2">
+          <p data-aos="fade-up" data-aos-delay="100" className="mt-4 sm:mt-6 text-sm sm:text-xl text-zinc-400 max-w-3xl mx-auto font-normal leading-relaxed px-2">
             Get breaking updates, 30-second AI summaries, and verified topics delivered directly to your phone.
           </p>
 
           {/* Store Download Buttons */}
-          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md sm:max-w-none mx-auto">
+          <div data-aos="fade-up" data-aos-delay="200" className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md sm:max-w-none mx-auto">
             {/* Google Play Store Badge */}
             <a
               href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk"
@@ -320,7 +432,7 @@ export default function LandingPage() {
           </div>
 
           {/* Hero App Screen Mockup */}
-          <div className="mt-12 sm:mt-16 max-w-4xl mx-auto rounded-2xl sm:rounded-3xl p-2 sm:p-3 bg-zinc-900/60 border border-zinc-800 shadow-2xl">
+          <div data-aos="zoom-in" data-aos-delay="300" className="mt-12 sm:mt-16 max-w-4xl mx-auto rounded-2xl sm:rounded-3xl p-2 sm:p-3 bg-zinc-900/60 border border-zinc-800 shadow-2xl">
             <div className="rounded-xl sm:rounded-2xl bg-[#09090b] p-4 sm:p-6 text-left border border-zinc-800 flex flex-col md:flex-row items-center gap-6 sm:gap-8">
               {/* Phone illustration mockup */}
               <div className="w-full max-w-xs md:w-64 h-80 sm:h-96 rounded-3xl bg-zinc-950 border-4 border-zinc-700 p-3 flex flex-col justify-between shadow-2xl shrink-0 relative overflow-hidden mx-auto">
@@ -376,7 +488,7 @@ export default function LandingPage() {
       {/* Reader Features Section */}
       <section id="features" className="py-16 sm:py-24 bg-zinc-950 border-b border-zinc-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+          <div data-aos="fade-up" className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Designed for Modern Readers</h2>
             <p className="text-zinc-400 mt-2 sm:mt-4 text-xs sm:text-base">
               Built with precision typography and minimalist black-and-white design for effortless daily reading.
@@ -384,7 +496,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+            <div data-aos="fade-up" data-aos-delay="100" className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
                 <i className="fa fa-magic text-lg sm:text-xl"></i>
               </div>
@@ -394,7 +506,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+            <div data-aos="fade-up" data-aos-delay="200" className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
                 <i className="fa fa-bell-o text-lg sm:text-xl"></i>
               </div>
@@ -404,7 +516,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+            <div data-aos="fade-up" data-aos-delay="300" className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
                 <i className="fa fa-cloud-download text-lg sm:text-xl"></i>
               </div>
@@ -414,7 +526,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+            <div data-aos="fade-up" data-aos-delay="100" className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
                 <i className="fa fa-volume-up text-lg sm:text-xl"></i>
               </div>
@@ -424,7 +536,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+            <div data-aos="fade-up" data-aos-delay="200" className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
                 <i className="fa fa-check-circle-o text-lg sm:text-xl"></i>
               </div>
@@ -434,7 +546,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
+            <div data-aos="fade-up" data-aos-delay="300" className="p-6 sm:p-8 rounded-2xl bg-[#0d0f17] border border-zinc-800 hover:border-zinc-600 transition-colors">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 text-white flex items-center justify-center mb-4 sm:mb-6 border border-zinc-700">
                 <i className="fa fa-moon-o text-lg sm:text-xl"></i>
               </div>
@@ -575,13 +687,13 @@ export default function LandingPage() {
       {/* Reader Reviews */}
       <section id="reviews" className="py-16 sm:py-24 bg-zinc-950 border-t border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+          <div data-aos="fade-up" className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Loved by Readers Worldwide</h2>
             <p className="text-zinc-400 mt-2 text-xs sm:text-base">See why millions choose DailyNewsHub for their daily news routine.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
+            <div data-aos="fade-up" data-aos-delay="100" className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-1 text-zinc-200 mb-3 text-xs">
                   <i className="fa fa-star"></i>
@@ -603,7 +715,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
+            <div data-aos="fade-up" data-aos-delay="200" className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-1 text-zinc-200 mb-3 text-xs">
                   <i className="fa fa-star"></i>
@@ -625,7 +737,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
+            <div data-aos="fade-up" data-aos-delay="300" className="p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-zinc-800 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-1 text-zinc-200 mb-3 text-xs">
                   <i className="fa fa-star"></i>
@@ -650,9 +762,110 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* "Build on Daily News Hub" Developer API Section */}
+      <section id="developer-api" className="py-16 sm:py-24 bg-[#050608] border-t border-zinc-800/80 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            {/* Left Content */}
+            <div data-aos="fade-right" className="lg:col-span-6 space-y-6 text-left">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-semibold text-zinc-300">
+                <i className="fa fa-code text-white"></i>
+                <span>Build on Daily News Hub</span>
+              </div>
+
+              <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                Power Your App With <br className="hidden sm:inline" />
+                <span className="text-zinc-400">Real-Time News</span>
+              </h2>
+
+              <p className="text-zinc-400 text-sm sm:text-base leading-relaxed">
+                Access breaking news, AI summaries, trending stories, and category feeds through a simple REST API. Trusted data. Nigerian and global coverage.
+              </p>
+
+              {/* Tier Pills */}
+              <div className="space-y-2 pt-1">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Available API Tiers</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    Free
+                  </span>
+                  <span className="px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    Starter
+                  </span>
+                  <span className="px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                    Pro
+                  </span>
+                  <span className="px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                    Enterprise
+                  </span>
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <div className="pt-3">
+                <a
+                  href="/developer/register"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-xl transition-all duration-200 active:scale-95 cursor-pointer"
+                >
+                  <span>Get Free API Key</span>
+                  <i className="fa fa-arrow-right text-xs"></i>
+                </a>
+              </div>
+            </div>
+
+            {/* Right: cURL Code Example Snippet Box */}
+            <div data-aos="fade-left" className="lg:col-span-6">
+              <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-4 sm:p-6 shadow-2xl relative font-mono text-xs text-left">
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
+                    <span className="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+                    <span className="w-3 h-3 rounded-full bg-green-500/80"></span>
+                    <span className="ml-2 text-zinc-400 text-[11px]">curl_example.sh</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-sans">REST JSON</span>
+                </div>
+
+                {/* Request */}
+                <div className="space-y-1 text-zinc-300 text-[11px] sm:text-xs overflow-x-auto pb-2">
+                  <p><span className="text-zinc-500">$</span> curl -X GET <span className="text-emerald-400">&quot;https://api.dailynewshub.com/api/v2/public/articles?category=trending&country=ng&quot;</span> \</p>
+                  <p className="pl-4">-H <span className="text-amber-300">&quot;X-API-Key: dnh_live_9f823a7b4c...&quot;</span> \</p>
+                  <p className="pl-4">-H <span className="text-amber-300">&quot;Content-Type: application/json&quot;</span></p>
+                </div>
+
+                {/* Response Box */}
+                <div className="mt-4 p-3.5 rounded-xl bg-black border border-zinc-800 text-zinc-400 overflow-x-auto text-[10px] sm:text-[11px] leading-relaxed">
+                  <p className="text-emerald-500/90 mb-1 font-sans">// 200 OK Response — Nigerian & Global Coverage</p>
+                  <pre className="text-zinc-300 font-mono">{`{
+  "status": "success",
+  "data": {
+    "total": 1284,
+    "region": "NG/Global",
+    "items": [
+      {
+        "id": "art_908a21b",
+        "title": "Quantum Error Correction Unlocked",
+        "category": "AI & Tech",
+        "summary": "AI model proves room-temp coherence...",
+        "published_at": "2026-07-29T10:30:00Z"
+      }
+    ]
+  }
+}`}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Main Download App Call-to-Action Section */}
       <section id="download" className="py-16 sm:py-24 bg-[#050505] border-t border-zinc-800 relative overflow-hidden">
-        <div className="max-w-5xl mx-auto px-4 text-center relative z-10">
+        <div data-aos="zoom-in" className="max-w-5xl mx-auto px-4 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-zinc-900 text-zinc-300 text-xs font-bold mb-4 sm:mb-6 border border-zinc-700">
             <i className="fa fa-download text-xs"></i>
             Available Now on iOS & Android
@@ -696,26 +909,548 @@ export default function LandingPage() {
       </section>
 
       {/* Public App Footer */}
-      <footer className="py-8 sm:py-12 bg-black border-t border-zinc-900 text-zinc-400 text-xs sm:text-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 text-center md:text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white">
-              <i className="fa fa-newspaper-o text-sm"></i>
+      <footer data-aos="fade-up" className="py-12 sm:py-16 bg-black border-t border-zinc-900 text-zinc-400 text-xs sm:text-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-zinc-900 text-left">
+            {/* Brand */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white">
+                  <i className="fa fa-newspaper-o text-sm"></i>
+                </div>
+                <span className="font-bold text-white text-base">DailyNewsHub</span>
+              </div>
+              <p className="text-zinc-500 text-xs leading-relaxed max-w-xs">
+                Real-time AI news intelligence and global REST API platform for developers, enterprise apps, and modern readers.
+              </p>
             </div>
-            <span className="font-bold text-white">DailyNewsHub</span>
+
+            {/* Product Column */}
+            <div>
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3.5">Product</h4>
+              <ul className="space-y-2 text-xs">
+                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
+                <li><a href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Get App</a></li>
+                <li><a href="#reviews" className="hover:text-white transition-colors">Reviews</a></li>
+              </ul>
+            </div>
+
+            {/* Developers Column */}
+            <div>
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3.5">Developers</h4>
+              <ul className="space-y-2 text-xs">
+                <li><a href="/docs" className="hover:text-white transition-colors">API Docs</a></li>
+                <li><a href="/developer/status" className="hover:text-white transition-colors">API Status</a></li>
+                <li><a href="/developer" className="hover:text-white transition-colors">Developer Portal</a></li>
+                <li><a href="/developer/changelog" className="hover:text-white transition-colors">Changelog</a></li>
+              </ul>
+            </div>
+
+            {/* Company Column */}
+            <div>
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3.5">Company</h4>
+              <ul className="space-y-2 text-xs">
+                <li><a href="/about" className="hover:text-white transition-colors">About</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Terms</a></li>
+              </ul>
+            </div>
           </div>
 
-          <p className="text-[11px] sm:text-xs text-zinc-600">
-            © {new Date().getFullYear()} DailyNewsHub Inc. All rights reserved.
-          </p>
-
-          <div className="flex items-center gap-4 sm:gap-6 text-xs font-semibold text-zinc-400">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="https://github.com/officialdb/Dailynewshub/releases/latest/download/DailyNewsHub-v1.0.0.apk" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Get App</a>
-            <a href="#reviews" className="hover:text-white transition-colors">Reviews</a>
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-600">
+            <p>© {new Date().getFullYear()} DailyNewsHub Inc. All rights reserved.</p>
+            <p className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>All Systems Operational</span>
+            </p>
           </div>
         </div>
       </footer>
+
+      {/* Interactive API Key Modal */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#09090b] border border-zinc-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative text-left">
+            <button
+              onClick={() => setShowApiKeyModal(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg p-1 cursor-pointer"
+            >
+              <i className="fa fa-times"></i>
+            </button>
+
+            {isAuthenticated ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center font-bold">
+                    <i className="fa fa-key text-lg"></i>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Developer API Access</h3>
+                    <p className="text-xs text-zinc-400">Manage your production and sandbox API keys</p>
+                  </div>
+                </div>
+
+                {revealedKey && !revealedKey.startsWith("__") ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <i className="fa fa-check-circle text-emerald-400"></i>
+                      <label className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Your API Key — Copy it now!</label>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-black border border-emerald-700 rounded-xl">
+                      <code className="text-xs text-emerald-400 font-mono flex-1 truncate select-all">{revealedKey}</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(revealedKey);
+                          setKeyCopied(true);
+                          setTimeout(() => setKeyCopied(false), 2500);
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shrink-0 cursor-pointer"
+                      >
+                        {keyCopied ? <><i className="fa fa-check mr-1"></i>Copied!</> : <><i className="fa fa-clipboard mr-1"></i>Copy</>}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-amber-400 flex items-center gap-1">
+                      <i className="fa fa-exclamation-triangle"></i>
+                      This key will <strong>not be shown again</strong> — store it securely now.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Your API Keys</label>
+                    <div className="p-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-zinc-400">
+                      <p className="flex items-center gap-2">
+                        <i className="fa fa-info-circle text-zinc-500"></i>
+                        Manage and create API keys from your developer dashboard.
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-zinc-500">Signed in as <span className="text-zinc-300">{auth.user?.email || "Developer"}</span>.</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => { setShowApiKeyModal(false); setRevealedKey(null); }}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-300 font-bold text-xs hover:text-white transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <a
+                    href="/developer/dashboard"
+                    className="px-4 py-2.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition-colors"
+                  >
+                    Manage Keys in Dashboard &rarr;
+                  </a>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* ─── Success: key revealed ─────────────────────────────────── */}
+                {revealedKey ? (
+                  <div className="space-y-4">
+                    {revealedKey === "__registered__" ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                            <i className="fa fa-envelope text-emerald-400"></i>
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-white">Account created</h3>
+                            <p className="text-[11px] text-zinc-400">Verify your email, then sign in to access the developer dashboard.</p>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-black border border-zinc-800 rounded-xl">
+                          <p className="text-[11px] text-zinc-400">No API key is issued until you create one inside the dashboard.</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setShowApiKeyModal(false); setRevealedKey(null); }}
+                            className="flex-1 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-300 font-bold text-xs hover:text-white transition-colors cursor-pointer"
+                          >
+                            Close
+                          </button>
+                          <a
+                            href="/developer/register"
+                            className="flex-1 py-2.5 rounded-xl bg-white text-black font-bold text-xs text-center hover:bg-zinc-200 transition-colors"
+                          >
+                            Open Portal
+                          </a>
+                        </div>
+                      </>
+                    ) : revealedKey === "__fetch_failed__" ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                            <i className="fa fa-exclamation-triangle text-amber-400"></i>
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-white">Signed in</h3>
+                            <p className="text-[11px] text-zinc-400">Open your dashboard to manage apps and keys.</p>
+                          </div>
+                        </div>
+                        <a
+                          href="/developer/dashboard"
+                          className="w-full py-2.5 rounded-xl bg-white text-black font-extrabold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors"
+                        >
+                          <i className="fa fa-tachometer"></i> Go to Dashboard
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                            <i className="fa fa-check-circle text-emerald-400 text-lg"></i>
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-white">Developer session active</h3>
+                            <p className="text-[11px] text-zinc-400">You can create apps and keys from the dashboard.</p>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-black border border-zinc-800 rounded-xl">
+                          <p className="text-[11px] text-zinc-400 mb-1">Signed in as</p>
+                          <code className="text-xs text-zinc-300 font-mono">{developerSessionEmail || auth.user?.email || "Developer"}</code>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setShowApiKeyModal(false); setRevealedKey(null); }}
+                            className="flex-1 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-300 font-bold text-xs hover:text-white transition-colors cursor-pointer"
+                          >
+                            Close
+                          </button>
+                          <a
+                            href="/developer/dashboard"
+                            className="flex-1 py-2.5 rounded-xl bg-white text-black font-bold text-xs text-center hover:bg-zinc-200 transition-colors"
+                          >
+                            Open Dashboard
+                          </a>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
+                          <i className="fa fa-key text-sm"></i>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-white">Developer Portal</h3>
+                          <p className="text-[11px] text-zinc-400">Create an account and sign in to manage apps and keys</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sign Up / Sign In Tab Toggle */}
+                    <div className="flex rounded-xl bg-zinc-900 p-1 border border-zinc-800">
+                      <button
+                        type="button"
+                        onClick={() => { setModalTab("signup"); setAuthError(null); }}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                          modalTab === "signup" ? "bg-white text-black shadow-md" : "text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        <i className="fa fa-user-plus mr-1.5"></i>Create Account (Sign Up)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setModalTab("signin"); setAuthError(null); }}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                          modalTab === "signin" ? "bg-white text-black shadow-md" : "text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        <i className="fa fa-sign-in mr-1.5"></i>Sign In
+                      </button>
+                    </div>
+
+                {/* Error Banner */}
+                {authError && (
+                  <div className="p-3 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center gap-2">
+                    <i className="fa fa-exclamation-circle text-sm shrink-0"></i>
+                    <span>{authError}</span>
+                  </div>
+                )}
+
+                {/* Form */}
+                {modalTab === "signup" ? (
+                  <form onSubmit={handleRegister} className="space-y-2.5">
+                    {/* First Name & Last Name */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                          First Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={regFirstName}
+                          onChange={(e) => setRegFirstName(e.target.value)}
+                          placeholder="Alex"
+                          className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                          Last Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={regLastName}
+                          onChange={(e) => setRegLastName(e.target.value)}
+                          placeholder="Rivera"
+                          className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email & Phone Number */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                          Work Email *
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          placeholder="alex@acme-apps.io"
+                          className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          value={regPhone}
+                          onChange={(e) => setRegPhone(e.target.value)}
+                          placeholder="+1 (555) 019-2834"
+                          className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Country & State */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                          Country
+                        </label>
+                        <select
+                          value={regCountry}
+                          onChange={(e) => setRegCountry(e.target.value)}
+                          className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-white transition-all"
+                        >
+                          <option value="United States">United States</option>
+                          <option value="United Kingdom">United Kingdom</option>
+                          <option value="Canada">Canada</option>
+                          <option value="Germany">Germany</option>
+                          <option value="Nigeria">Nigeria</option>
+                          <option value="India">India</option>
+                          <option value="Australia">Australia</option>
+                          <option value="France">France</option>
+                          <option value="Other">Other Country</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                          State / Province
+                        </label>
+                        <input
+                          type="text"
+                          value={regState}
+                          onChange={(e) => setRegState(e.target.value)}
+                          placeholder="e.g. California"
+                          className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Role / Purpose */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                        Account Purpose / Role
+                      </label>
+                      <select
+                        value={regRole}
+                        onChange={(e) => setRegRole(e.target.value)}
+                        className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-white transition-all"
+                      >
+                        <option value="api_developer">API Consumer / App Integrator</option>
+                        <option value="reporter">News Reporter / Contributor</option>
+                        <option value="fact_checker">Fact Checker</option>
+                        <option value="validator">Content Validator / Editor</option>
+                        <option value="chief_editor">Chief Editor</option>
+                        <option value="publisher">Publisher / Distribution</option>
+                        <option value="auditor">Compliance Auditor</option>
+                      </select>
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                        Password *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                      />
+
+                      {/* Password Strength Indicator */}
+                      {regPassword.length > 0 && (
+                        <div className="mt-1.5 space-y-1">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-zinc-400">Password Strength:</span>
+                            <span className={`font-bold ${
+                              passScore <= 1 ? "text-red-400" : passScore <= 3 ? "text-amber-400" : "text-emerald-400"
+                            }`}>
+                              {passScore <= 1 ? "Weak" : passScore <= 3 ? "Medium" : "Strong"}
+                            </span>
+                          </div>
+                          <div className="w-full h-1 bg-zinc-900 rounded-full overflow-hidden flex gap-0.5">
+                            <div className={`h-full flex-1 transition-all ${passScore >= 1 ? (passScore <= 1 ? "bg-red-500" : passScore <= 3 ? "bg-amber-500" : "bg-emerald-500") : "bg-zinc-800"}`}></div>
+                            <div className={`h-full flex-1 transition-all ${passScore >= 2 ? (passScore <= 3 ? "bg-amber-500" : "bg-emerald-500") : "bg-zinc-800"}`}></div>
+                            <div className={`h-full flex-1 transition-all ${passScore >= 3 ? (passScore <= 3 ? "bg-amber-500" : "bg-emerald-500") : "bg-zinc-800"}`}></div>
+                            <div className={`h-full flex-1 transition-all ${passScore >= 4 ? "bg-emerald-500" : "bg-zinc-800"}`}></div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 text-[9px] text-zinc-400 pt-0.5">
+                            <span className={passLengthOk ? "text-emerald-400" : ""}>
+                              <i className={`fa ${passLengthOk ? "fa-check-circle" : "fa-circle-o"} mr-1`}></i>8+ characters
+                            </span>
+                            <span className={passUpperLowerOk ? "text-emerald-400" : ""}>
+                              <i className={`fa ${passUpperLowerOk ? "fa-check-circle" : "fa-circle-o"} mr-1`}></i>Upper & lower
+                            </span>
+                            <span className={passNumberOk ? "text-emerald-400" : ""}>
+                              <i className={`fa ${passNumberOk ? "fa-check-circle" : "fa-circle-o"} mr-1`}></i>Number (0-9)
+                            </span>
+                            <span className={passSpecialOk ? "text-emerald-400" : ""}>
+                              <i className={`fa ${passSpecialOk ? "fa-check-circle" : "fa-circle-o"} mr-1`}></i>Symbol (@#$%)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+                          Confirm Password *
+                        </label>
+                        {regConfirmPassword.length > 0 && (
+                          <span className={`text-[10px] font-semibold ${passwordsMatch ? "text-emerald-400" : "text-red-400"}`}>
+                            {passwordsMatch ? <><i className="fa fa-check mr-1"></i>Passwords match</> : <><i className="fa fa-times mr-1"></i>Passwords do not match</>}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className={`w-full bg-black border rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none transition-all ${
+                          regConfirmPassword.length > 0
+                            ? passwordsMatch
+                              ? "border-emerald-500/70 focus:border-emerald-400"
+                              : "border-red-500/70 focus:border-red-400"
+                            : "border-zinc-700 focus:border-white"
+                        }`}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={authLoading || !passwordsMatch || regPassword.length < 8}
+                      className="w-full py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    >
+                      {authLoading ? (
+                        <>
+                          <i className="fa fa-circle-o-notch fa-spin"></i>
+                          Creating Account…
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa fa-key"></i>
+                          Create Developer Account
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleLogin} className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        placeholder="developer@example.com"
+                        className="w-full bg-black border border-zinc-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-black border border-zinc-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    >
+                      {authLoading ? (
+                        <>
+                          <i className="fa fa-circle-o-notch fa-spin"></i>
+                          Signing in…
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa fa-sign-in"></i>
+                          Sign In
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+
+                    <p className="text-[11px] text-zinc-500 text-center pt-1">
+                      Developer accounts can create apps and API keys from the dashboard.
+                    </p>
+                  </>
+                )}
+
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

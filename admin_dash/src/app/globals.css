@@ -2,6 +2,9 @@
 @plugin "@tailwindcss/forms";
 @plugin "@tailwindcss/container-queries";
 
+/* Enable class-based dark mode — dark: utilities respond to html.dark class */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-on-primary-container: #f3f3ff;
   --color-tertiary-fixed: #ffdbd0;
@@ -96,43 +99,45 @@ body {
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* Dark mode */
-html.dark {
-  --color-surface: #1a1b26;
-  --color-on-surface: #e1e2e8;
-  --color-surface-container-lowest: #1f2030;
-  --color-surface-container-low: #252638;
-  --color-surface-container-high: #2d2e42;
-  --color-surface-container: #292a3c;
-  --color-surface-bright: #1f2030;
-  --color-outline: #565872;
-  --color-outline-variant: #3b3d54;
-  --color-secondary: #8b8fa8;
-  --color-on-surface-variant: #a0a3ba;
-  --color-primary: #7aa2f7;
-  --color-primary-container: #3d59a1;
-  --color-on-primary: #1a1b26;
-  --color-error: #f7768e;
-  --color-error-container: #4a2028;
-  --color-background: #1a1b26;
-  --color-on-background: #e1e2e8;
-  --color-surface-dim: #13141e;
-  --color-surface-variant: #292a3c;
-  --color-inverse-surface: #e1e2e8;
-  --color-inverse-on-surface: #2e303a;
-  --color-inverse-primary: #004ccd;
-  --color-surface-container-highest: #333450;
-  --color-surface-tint: #7aa2f7;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-html.dark ::-webkit-scrollbar-thumb { background: #3b3d54; }
-html.dark ::-webkit-scrollbar-thumb:hover { background: #565872; }
+/* Dark mode — override @theme defaults in base layer so they win in cascade */
+@layer base {
+  html.dark {
+    --color-surface: #09090b;
+    --color-on-surface: #f4f4f5;
+    --color-surface-container-lowest: #09090b;
+    --color-surface-container-low: #18181b;
+    --color-surface-container-high: #27272a;
+    --color-surface-container: #18181b;
+    --color-surface-bright: #18181b;
+    --color-outline: #3f3f46;
+    --color-outline-variant: #27272a;
+    --color-secondary: #a1a1aa;
+    --color-on-surface-variant: #a1a1aa;
+    --color-primary: #6366f1;
+    --color-primary-container: #1e1b4b;
+    --color-on-primary: #ffffff;
+    --color-error: #f87171;
+    --color-error-container: #450a0a;
+    --color-background: #09090b;
+    --color-on-background: #f4f4f5;
+    --color-surface-dim: #09090b;
+    --color-surface-variant: #18181b;
+    --color-inverse-surface: #f4f4f5;
+    --color-inverse-on-surface: #18181b;
+    --color-inverse-primary: #6366f1;
+    --color-surface-container-highest: #27272a;
+    --color-surface-tint: #6366f1;
+  }
+
+  html.dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+  html.dark ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+}
 
 @layer utilities {
   .text-headline-md {

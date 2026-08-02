@@ -19,6 +19,7 @@ from app.core.cache import bump_version
 from app.db.session import AsyncSessionLocal
 from app.models.article import Article
 from app.models.category import Category
+from app.models.enums import ArticleStatus
 from app.models.notification import Notification
 from app.schemas.article import ArticleResponse
 from app.services import push_notification
@@ -264,6 +265,7 @@ async def fetch_and_save_articles() -> list[Article]:
                     is_featured=bool(raw_article.get("is_featured", False)),
                     is_trending=bool(raw_article.get("is_trending", False)),
                     published_at=_parse_published_at(raw_article),
+                    status=ArticleStatus.PUBLISHED,
                 )
                 session.add(article)
                 new_articles.append(article)

@@ -76,6 +76,8 @@ google-services.json
 
 # Dev patch scripts
 patch_*.py
+# --- DOCKER FIX ---
+backend/docker-compose.override.yml
 
 # Built APK files (distributed via GitHub Releases)
 *.apk
